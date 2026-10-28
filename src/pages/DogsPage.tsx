@@ -8,10 +8,7 @@ import {
   dogTagsMap,
   getDog,
   lastVisits,
-  listBreeds,
   listDogs,
-  listOwners,
-  listTags,
   ownersOf,
   saveDog,
   tagsOf,
@@ -34,9 +31,6 @@ function DogList({ selected }: { selected?: string }) {
   const ownerMap = dogOwnersMap();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
-  const [tagId, setTagId] = useState("");
-  const [ownerId, setOwnerId] = useState("");
-  const [breed, setBreed] = useState("");
 
   const longAgo = (d: Dog) => {
     const l = last.get(d.id);
@@ -49,14 +43,7 @@ function DogList({ selected }: { selected?: string }) {
       .toLowerCase();
   const shown = dogs
     .filter((d) => !q || haystack(d).includes(q))
-    .filter((d) => (filter === "booked" ? upcoming.has(d.id) : filter === "long" ? longAgo(d) : true))
-    .filter((d) => !tagId || (tagMap.get(d.id) ?? []).some((t) => t.id === tagId))
-    .filter((d) => !ownerId || (ownerMap.get(d.id) ?? []).some((o) => o.id === ownerId))
-    .filter((d) => !breed || d.breed.toLowerCase() === breed.toLowerCase());
-  const tags = listTags();
-  const owners = listOwners();
-  const breeds = listBreeds();
-  const anyFilter = tagId || ownerId || breed;
+    .filter((d) => (filter === "booked" ? upcoming.has(d.id) : filter === "long" ? longAgo(d) : true));
 
   return (
     <section className="stack" aria-label="Список собак" style={{ gap: 16 }}>
@@ -66,7 +53,7 @@ function DogList({ selected }: { selected?: string }) {
           <Icon name="plus" size={18} /> Собака
         </Link>
       </div>
-      <SearchBox value={query} onChange={setQuery} placeholder="Кличка, порода, хозяин" />
+      <SearchBox value={query} onChange={setQuery} placeholder="Кличка, порода, хозяин, особенность" />
       <div className="row" style={{ gap: 8 }}>
         {(
           [
@@ -80,56 +67,6 @@ function DogList({ selected }: { selected?: string }) {
           </button>
         ))}
       </div>
-      {dogs.length > 0 && (
-        <div className="grid-auto" style={{ ["--min" as string]: "140px", gap: 8 }}>
-          <label className="field small">
-            Особенность
-            <select className="input" value={tagId} onChange={(e) => setTagId(e.target.value)}>
-              <option value="">Все</option>
-              {tags.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field small">
-            Хозяин
-            <select className="input" value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
-              <option value="">Все</option>
-              {owners.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {[o.name, o.phone].filter(Boolean).join(" · ")}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field small">
-            Порода
-            <select className="input" value={breed} onChange={(e) => setBreed(e.target.value)}>
-              <option value="">Все</option>
-              {breeds.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      )}
-      {anyFilter && (
-        <button
-          className="btn link small"
-          style={{ alignSelf: "flex-start" }}
-          onClick={() => {
-            setTagId("");
-            setOwnerId("");
-            setBreed("");
-          }}
-        >
-          Сбросить фильтры · найдено {shown.length}
-        </button>
-      )}
       {dogs.length === 0 && (
         <div className="empty">
           Пока ни одной собаки
