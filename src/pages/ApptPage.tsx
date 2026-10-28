@@ -15,7 +15,6 @@ import {
 } from "../db/repo";
 import { fromLocalStamp, hhmm, slotLabel, toDateKey } from "../lib/dates";
 import { money, splitTags } from "../lib/format";
-import { appointmentTitle, buildIcs, openInCalendar } from "../lib/ics";
 import { askConfirm } from "../lib/dialog";
 import { Avatar, PhotoSlot, useToast } from "../components/common";
 import { Icon } from "../components/Icon";
@@ -82,7 +81,7 @@ function ApptView({ id }: { id: string }) {
     showToast("Визит сохранён");
   };
 
-  const exportOne = () => void openInCalendar("tootsie-zapis.ics", buildIcs([appt], new Map([[dog.id, dog]])));
+  const title = `${appt.dog_name} · ${appt.proc_name}${appt.variant_name ? `, ${appt.variant_name.toLowerCase()}` : ""}`;
 
   return (
     <>
@@ -91,7 +90,7 @@ function ApptView({ id }: { id: string }) {
           <button className="btn link row small muted" style={{ alignSelf: "flex-start", gap: 4 }} onClick={() => nav(-1)}>
             <Icon name="left" size={18} /> Назад
           </button>
-          <h1>{appointmentTitle(appt)}</h1>
+          <h1>{title}</h1>
           <div className="row" style={{ gap: 8 }}>
             <span className="tag">{slotLabel(appt.starts_at, appt.minutes)}</span>
             <span className="tag">{money(appt.price)} по прайсу</span>
@@ -108,9 +107,6 @@ function ApptView({ id }: { id: string }) {
         </div>
         {!cancelled && (
           <div className="row">
-            <button className="btn" onClick={exportOne}>
-              <Icon name="calendarPlus" size={18} /> В Apple Календарь
-            </button>
             <button className="btn" onClick={() => setMoving(!moving)}>
               Перенести
             </button>
@@ -119,7 +115,6 @@ function ApptView({ id }: { id: string }) {
               onClick={async () => {
                 const ok = await askConfirm({
                   title: `Отменить запись ${appt.dog_name}?`,
-                  text: "Если она в Apple Календаре — удали событие там вручную.",
                   okText: "Отменить запись",
                   cancelText: "Не отменять",
                   danger: true,
@@ -160,7 +155,6 @@ function ApptView({ id }: { id: string }) {
               Сохранить
             </button>
           </div>
-          <p className="small muted bold">Если запись уже в Apple Календаре — удали старое событие и нажми «В Apple Календарь» ещё раз.</p>
         </section>
       )}
 

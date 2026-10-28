@@ -1,6 +1,5 @@
 const PATHS: Record<string, string> = {
   calendar: '<rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/>',
-  calendarPlus: '<rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18M12 14v5M9.5 16.5h5"/>',
   paw: '<circle cx="7" cy="9" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="9" r="2"/><path d="M8 17.5c0-3 1.8-5.5 4-5.5s4 2.5 4 5.5c0 1.8-1.8 2.5-4 2s-4 .2-4-2z"/>',
   bottle: '<path d="M9 2h6M10 2v4L7 9v11a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9l-3-3V2"/><path d="M7 13h10"/>',
   scissors: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/>',

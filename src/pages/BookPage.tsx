@@ -4,8 +4,6 @@ import { useDbVersion } from "../db/db";
 import {
   createAppointment,
   emptyDog,
-  getAppointment,
-  getDog,
   listDogs,
   listProcedures,
   saveDog,
@@ -15,7 +13,6 @@ import {
 } from "../db/repo";
 import { addMinutes, fromLocalStamp, hhmm, slotLabel, toDateKey } from "../lib/dates";
 import { PASTELS, duration, money } from "../lib/format";
-import { buildIcs, openInCalendar } from "../lib/ics";
 import { Avatar, DurationFields, NumberInput, SearchBox } from "../components/common";
 import { Icon } from "../components/Icon";
 
@@ -39,7 +36,6 @@ export function BookPage() {
 
   const [date, setDate] = useState(params.get("date") ?? toDateKey(new Date()));
   const [time, setTime] = useState("10:00");
-  const [toCalendar, setToCalendar] = useState(true);
 
   const proc = procs.find((p) => p.id === procId) ?? null;
   const variant = proc?.variants.find((v) => v.id === variantId) ?? null;
@@ -74,12 +70,7 @@ export function BookPage() {
       finalProc = listProcedures().find((p) => p.id === id)!;
       finalVariant = null;
     }
-    const id = createAppointment({ dog_id: finalDogId, procedure: finalProc, variant: finalVariant, starts_at: startsAt });
-    if (toCalendar) {
-      const appt = getAppointment(id)!;
-      const dog = getDog(finalDogId)!;
-      void openInCalendar("tootsie-zapis.ics", buildIcs([appt], new Map([[dog.id, dog]])));
-    }
+    createAppointment({ dog_id: finalDogId, procedure: finalProc, variant: finalVariant, starts_at: startsAt });
     nav("/");
   };
 
@@ -261,10 +252,6 @@ export function BookPage() {
                 {needVariant ? "выбери подтип" : hasProc ? money(price) : "—"}
               </dd>
             </dl>
-            <label className="check">
-              <input type="checkbox" checked={toCalendar} onChange={(e) => setToCalendar(e.target.checked)} />
-              Добавить в Apple Календарь
-            </label>
             <button className="btn primary big wide" disabled={!canSave} onClick={save}>
               {needVariant ? "Выбери подтип процедуры" : "Записать"}
             </button>

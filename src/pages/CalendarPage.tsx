@@ -19,7 +19,6 @@ import {
   weeksAgo,
 } from "../lib/dates";
 import { RICH_DAY_GEL, money, plural } from "../lib/format";
-import { buildIcs, openInCalendar } from "../lib/ics";
 import { Avatar, useDesktop } from "../components/common";
 import { Icon } from "../components/Icon";
 import { SyncLabel } from "../components/Layout";
@@ -198,11 +197,6 @@ export function CalendarPage() {
     setDay(startOfDay(new Date()));
   };
 
-  const exportWeek = () => {
-    const dogs = new Map(listDogs().map((d) => [d.id, d]));
-    void openInCalendar(`tootsie-${toDateKey(week)}.ics`, buildIcs(appts, dogs));
-  };
-
   if (!desktop) {
     const list = byDay(day);
     return (
@@ -283,9 +277,6 @@ export function CalendarPage() {
           </button>
           <button className="btn icon" aria-label="Следующая неделя" onClick={() => moveWeek(1)}>
             <Icon name="right" />
-          </button>
-          <button className="btn" onClick={exportWeek} disabled={appts.length === 0}>
-            <Icon name="calendarPlus" size={18} /> Неделю в Apple Календарь
           </button>
         </div>
       </header>
