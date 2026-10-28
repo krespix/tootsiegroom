@@ -3,8 +3,12 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useDbVersion } from "../db/db";
 import {
   createAppointment,
+  dogOwnersMap,
   emptyDog,
+  listBreeds,
   listDogs,
+  listOwners,
+  type OwnerInput,
   listProcedures,
   saveDog,
   saveProcedure,
@@ -15,6 +19,7 @@ import { addMinutes, fromLocalStamp, hhmm, slotLabel, toDateKey } from "../lib/d
 import { PASTELS, duration, money } from "../lib/format";
 import { Avatar, DurationFields, NumberInput, SearchBox } from "../components/common";
 import { Icon } from "../components/Icon";
+import { OwnerFields, Suggest, emptyOwner } from "../components/pickers";
 
 export function BookPage() {
   useDbVersion();
@@ -27,7 +32,8 @@ export function BookPage() {
   const [dogId, setDogId] = useState<string | null>(params.get("dog"));
   const [dogQuery, setDogQuery] = useState("");
   const [newDog, setNewDog] = useState(false);
-  const [nd, setNd] = useState({ name: "", breed: "", owner_name: "", owner_phone: "" });
+  const [nd, setNd] = useState({ name: "", breed: "" });
+  const [ndOwner, setNdOwner] = useState<OwnerInput>(emptyOwner);
 
   const [procId, setProcId] = useState<string | null>(null);
   const [variantId, setVariantId] = useState<string | null>(null);
@@ -51,11 +57,14 @@ export function BookPage() {
   const end = date && time ? hhmm(addMinutes(fromLocalStamp(startsAt), minutes)) : "—";
 
   const q = dogQuery.trim().toLowerCase();
-  const shownDogs = dogs.filter((d) => !q || `${d.name} ${d.breed} ${d.owner_name}`.toLowerCase().includes(q));
+  const ownerMap = dogOwnersMap();
+  const shownDogs = dogs.filter(
+    (d) => !q || [d.name, d.breed, ...(ownerMap.get(d.id) ?? []).flatMap((o) => [o.name, o.phone])].join(" ").toLowerCase().includes(q),
+  );
 
   const save = () => {
     if (!canSave) return;
-    const finalDogId = newDog ? saveDog({ ...emptyDog(), ...nd, name: nd.name.trim() }) : dogId!;
+    const finalDogId = newDog ? saveDog({ ...emptyDog(), ...nd, name: nd.name.trim() }, { owners: [ndOwner] }) : dogId!;
     let finalProc: Procedure = proc!;
     let finalVariant: Variant | null = variant;
     if (newProc) {
@@ -127,20 +136,20 @@ export function BookPage() {
                   Кличка
                   <input className="input" value={nd.name} onChange={(e) => setNd({ ...nd, name: e.target.value })} placeholder="Например, Ричи" autoFocus />
                 </label>
-                <label className="field">
-                  Порода
-                  <input className="input" value={nd.breed} onChange={(e) => setNd({ ...nd, breed: e.target.value })} />
-                </label>
-                <label className="field">
-                  Хозяин
-                  <input className="input" value={nd.owner_name} onChange={(e) => setNd({ ...nd, owner_name: e.target.value })} />
-                </label>
-                <label className="field">
-                  Телефон
-                  <input className="input" type="tel" value={nd.owner_phone} onChange={(e) => setNd({ ...nd, owner_phone: e.target.value })} />
-                </label>
+                <Suggest
+                  label="Порода"
+                  value={nd.breed}
+                  onChange={(breed) => setNd({ ...nd, breed })}
+                  onPick={(o) => setNd({ ...nd, breed: o.label })}
+                  options={listBreeds().map((b) => ({ key: b, label: b }))}
+                  showAllOnFocus
+                />
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <span className="bold">Хозяин</span>
+                  <OwnerFields owner={ndOwner} onChange={setNdOwner} known={listOwners()} taken={new Set()} compact />
+                </div>
                 <p className="small muted bold" style={{ gridColumn: "1 / -1" }}>
-                  Фото, день рождения и заметки — потом в карточке собаки.
+                  Фото, день рождения, особенности и других хозяев — потом в карточке собаки.
                 </p>
               </div>
             )}

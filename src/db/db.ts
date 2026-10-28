@@ -20,10 +20,17 @@ export type Params = SqlValue[] | Record<string, SqlValue>;
 function migrate(d: Database) {
   const current = (d.exec("PRAGMA user_version")[0]?.values[0]?.[0] as number) ?? 0;
   for (let v = current; v < MIGRATIONS.length; v++) {
+    const m = MIGRATIONS[v];
     d.exec("BEGIN");
-    d.exec(MIGRATIONS[v]);
-    d.exec(`PRAGMA user_version = ${v + 1}`);
-    d.exec("COMMIT");
+    try {
+      if (typeof m === "string") d.exec(m);
+      else m(d);
+      d.exec(`PRAGMA user_version = ${v + 1}`);
+      d.exec("COMMIT");
+    } catch (e) {
+      d.exec("ROLLBACK");
+      throw e;
+    }
   }
   d.exec("PRAGMA foreign_keys = ON");
 }

@@ -1,7 +1,23 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { emptyDog, getDog, saveDog, type DogInput } from "../db/repo";
+import {
+  countDogAppointments,
+  deleteDog,
+  emptyDog,
+  getDog,
+  listBreeds,
+  listOwners,
+  listTags,
+  ownersOf,
+  saveDog,
+  tagsOf,
+  type DogInput,
+  type OwnerInput,
+} from "../db/repo";
+import { askConfirm } from "../lib/dialog";
+import { plural } from "../lib/format";
 import { PhotoSlot } from "../components/common";
+import { OwnersEditor, Suggest, TagEditor } from "../components/pickers";
 import { Icon } from "../components/Icon";
 
 export function DogFormPage() {
@@ -9,12 +25,32 @@ export function DogFormPage() {
   const nav = useNavigate();
   const existing = id ? getDog(id) : undefined;
   const [d, setD] = useState<DogInput>(() => existing ?? emptyDog());
+  const [tags, setTags] = useState<string[]>(() => (existing ? tagsOf(existing.id).map((t) => t.name) : []));
+  const [owners, setOwners] = useState<OwnerInput[]>(() => (existing ? ownersOf(existing.id) : []));
   const set = <K extends keyof DogInput>(k: K, v: DogInput[K]) => setD((x) => ({ ...x, [k]: v }));
+
+  const breeds = listBreeds();
+  const allTags = listTags().map((t) => t.name);
+  const knownOwners = listOwners();
 
   const save = () => {
     if (!d.name.trim()) return;
-    const savedId = saveDog({ ...d, name: d.name.trim() });
+    const savedId = saveDog({ ...d, name: d.name.trim() }, { tags, owners });
     nav(`/dogs/${savedId}`, { replace: true });
+  };
+
+  const remove = async () => {
+    if (!existing) return;
+    const n = countDogAppointments(existing.id);
+    const ok = await askConfirm({
+      title: `Удалить ${existing.name}?`,
+      text: n ? `Вместе с ${n} ${plural(n, "записью", "записями", "записями")} и историей визитов. Это не отменить.` : "Это не отменить.",
+      okText: "Удалить",
+      danger: true,
+    });
+    if (!ok) return;
+    deleteDog(existing.id);
+    nav("/dogs", { replace: true });
   };
 
   return (
@@ -38,10 +74,14 @@ export function DogFormPage() {
                 Кличка
                 <input className="input" value={d.name} onChange={(e) => set("name", e.target.value)} autoFocus={!existing} />
               </label>
-              <label className="field">
-                Порода
-                <input className="input" value={d.breed} onChange={(e) => set("breed", e.target.value)} />
-              </label>
+              <Suggest
+                label="Порода"
+                value={d.breed}
+                onChange={(v) => set("breed", v)}
+                onPick={(o) => set("breed", o.label)}
+                options={breeds.map((b) => ({ key: b, label: b }))}
+                showAllOnFocus
+              />
               <label className="field">
                 Пол
                 <select className="input" value={d.sex} onChange={(e) => set("sex", e.target.value)}>
@@ -59,11 +99,11 @@ export function DogFormPage() {
                 <input className="input" type="date" value={d.birthday ?? ""} onChange={(e) => set("birthday", e.target.value || null)} />
               </label>
             </div>
-            <label className="field">
+            <div className="field">
               Особенности
-              <span className="hint">Через запятую: боится фена, чувствительная кожа</span>
-              <input className="input" value={d.tags} onChange={(e) => set("tags", e.target.value)} />
-            </label>
+              <span className="hint">Выбери из списка или впиши новую</span>
+              <TagEditor value={tags} onChange={setTags} all={allTags} />
+            </div>
             <label className="field">
               Заметки
               <textarea className="input" rows={4} value={d.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Как стричь, что любит, чего боится" />
@@ -73,23 +113,17 @@ export function DogFormPage() {
 
         <aside className="side">
           <section className="card">
-            <h2>Хозяин</h2>
-            <label className="field">
-              Имя
-              <input className="input" value={d.owner_name} onChange={(e) => set("owner_name", e.target.value)} />
-            </label>
-            <label className="field">
-              Телефон
-              <input className="input" type="tel" value={d.owner_phone} onChange={(e) => set("owner_phone", e.target.value)} />
-            </label>
-            <label className="field">
-              Telegram
-              <input className="input" value={d.owner_telegram} onChange={(e) => set("owner_telegram", e.target.value)} placeholder="@username" />
-            </label>
+            <h2>{owners.length > 1 ? "Хозяева" : "Хозяин"}</h2>
+            <OwnersEditor value={owners} onChange={setOwners} known={knownOwners} />
           </section>
           <button className="btn primary big wide" disabled={!d.name.trim()} onClick={save}>
             Сохранить
           </button>
+          {existing && (
+            <button className="btn link danger" style={{ alignSelf: "center" }} onClick={remove}>
+              Удалить собаку
+            </button>
+          )}
         </aside>
       </div>
     </>

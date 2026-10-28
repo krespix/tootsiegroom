@@ -9,15 +9,15 @@ export type Dog = {
   sex: string;
   weight: string;
   birthday: string | null;
-  tags: string;
   notes: string;
-  owner_name: string;
-  owner_phone: string;
-  owner_telegram: string;
   photo: string | null;
   created_at: string;
   updated_at: string;
 };
+
+export type Tag = { id: string; name: string };
+export type Owner = { id: string; name: string; phone: string; telegram: string };
+export type OwnerInput = { id?: string; name: string; phone: string; telegram: string };
 
 export type Brand = { id: string; name: string; color: string; sort: number };
 
@@ -84,42 +84,147 @@ export function getDog(id: string) {
 
 export type DogInput = Omit<Dog, "id" | "created_at" | "updated_at"> & { id?: string };
 
-export function saveDog(d: DogInput): string {
+const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+function linkTags(dogId: string, names: string[]) {
+  run("DELETE FROM dog_tags WHERE dog_id = ?", [dogId]);
+  const existing = all<Tag>("SELECT * FROM tags");
+  const seen: string[] = [];
+  for (const raw of names) {
+    const name = raw.trim();
+    if (!name || seen.some((s) => sameName(s, name))) continue;
+    seen.push(name);
+    let id = existing.find((t) => sameName(t.name, name))?.id;
+    if (!id) {
+      id = newId();
+      run("INSERT INTO tags (id, name) VALUES (?, ?)", [id, name]);
+      existing.push({ id, name });
+    }
+    run("INSERT INTO dog_tags (dog_id, tag_id) VALUES (?, ?)", [dogId, id]);
+  }
+}
+
+/** Existing owners (with id) are updated in place, so a new phone shows on all their dogs. */
+function linkOwners(dogId: string, owners: OwnerInput[]) {
+  run("DELETE FROM dog_owners WHERE dog_id = ?", [dogId]);
+  owners
+    .filter((o) => o.name.trim() || o.phone.trim() || o.telegram.trim())
+    .forEach((o, i) => {
+      let id = o.id;
+      if (id) {
+        run("UPDATE owners SET name = ?, phone = ?, telegram = ? WHERE id = ?", [o.name.trim(), o.phone.trim(), o.telegram.trim(), id]);
+      } else {
+        id = newId();
+        run("INSERT INTO owners (id, name, phone, telegram, created_at) VALUES (?, ?, ?, ?, ?)", [id, o.name.trim(), o.phone.trim(), o.telegram.trim(), nowIso()]);
+      }
+      run("INSERT OR IGNORE INTO dog_owners (dog_id, owner_id, sort) VALUES (?, ?, ?)", [dogId, id, i]);
+    });
+}
+
+/** Tags and owners live only while some dog uses them — the dictionaries follow the dogs. */
+function pruneDictionaries() {
+  run("DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM dog_tags)");
+  run("DELETE FROM owners WHERE id NOT IN (SELECT owner_id FROM dog_owners)");
+}
+
+/** Saves the dog; `tags` / `owners`, when given, replace the dog's current ones. */
+export function saveDog(d: DogInput, extra: { tags?: string[]; owners?: OwnerInput[] } = {}): string {
   return write(() => {
     const now = nowIso();
-    if (d.id) {
-      run(
-        `UPDATE dogs SET name=?, breed=?, sex=?, weight=?, birthday=?, tags=?, notes=?, owner_name=?,
-         owner_phone=?, owner_telegram=?, photo=?, updated_at=? WHERE id=?`,
-        [d.name, d.breed, d.sex, d.weight, d.birthday, d.tags, d.notes, d.owner_name, d.owner_phone, d.owner_telegram, d.photo, now, d.id],
-      );
-      return d.id;
+    let id = d.id;
+    if (id) {
+      run("UPDATE dogs SET name=?, breed=?, sex=?, weight=?, birthday=?, notes=?, photo=?, updated_at=? WHERE id=?", [
+        d.name,
+        d.breed.trim(),
+        d.sex,
+        d.weight,
+        d.birthday,
+        d.notes,
+        d.photo,
+        now,
+        id,
+      ]);
+    } else {
+      id = newId();
+      run("INSERT INTO dogs (id, name, breed, sex, weight, birthday, notes, photo, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)", [
+        id,
+        d.name,
+        d.breed.trim(),
+        d.sex,
+        d.weight,
+        d.birthday,
+        d.notes,
+        d.photo,
+        now,
+        now,
+      ]);
     }
-    const id = newId();
-    run(
-      `INSERT INTO dogs (id, name, breed, sex, weight, birthday, tags, notes, owner_name, owner_phone, owner_telegram, photo, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [id, d.name, d.breed, d.sex, d.weight, d.birthday, d.tags, d.notes, d.owner_name, d.owner_phone, d.owner_telegram, d.photo, now, now],
-    );
+    if (extra.tags) linkTags(id, extra.tags);
+    if (extra.owners) linkOwners(id, extra.owners);
+    pruneDictionaries();
     return id;
   });
 }
 
-export function emptyDog(): DogInput {
-  return {
-    name: "",
-    breed: "",
-    sex: "",
-    weight: "",
-    birthday: null,
-    tags: "",
-    notes: "",
-    owner_name: "",
-    owner_phone: "",
-    owner_telegram: "",
-    photo: null,
-  };
+/** Deletes the dog together with its bookings and visit history. */
+export function deleteDog(id: string) {
+  write(() => {
+    run("DELETE FROM appointment_products WHERE appointment_id IN (SELECT id FROM appointments WHERE dog_id = ?)", [id]);
+    run("DELETE FROM appointments WHERE dog_id = ?", [id]);
+    run("DELETE FROM dog_tags WHERE dog_id = ?", [id]);
+    run("DELETE FROM dog_owners WHERE dog_id = ?", [id]);
+    run("DELETE FROM dogs WHERE id = ?", [id]);
+    pruneDictionaries();
+  });
 }
+
+export function emptyDog(): DogInput {
+  return { name: "", breed: "", sex: "", weight: "", birthday: null, notes: "", photo: null };
+}
+
+export function countDogAppointments(id: string) {
+  return one<{ n: number }>("SELECT COUNT(*) AS n FROM appointments WHERE dog_id = ?", [id])?.n ?? 0;
+}
+
+// Dictionaries for suggestions and filters, derived from what dogs actually use.
+
+export function listBreeds(): string[] {
+  const rows = all<{ breed: string }>("SELECT DISTINCT breed FROM dogs WHERE TRIM(breed) != ''");
+  const seen = new Map<string, string>();
+  for (const r of rows) if (!seen.has(r.breed.toLowerCase())) seen.set(r.breed.toLowerCase(), r.breed);
+  return [...seen.values()].sort((a, b) => a.localeCompare(b, "ru"));
+}
+
+export function listTags(): Tag[] {
+  return all<Tag>("SELECT * FROM tags").sort((a, b) => a.name.localeCompare(b.name, "ru"));
+}
+
+export function listOwners(): (Owner & { dogs: string })[] {
+  return all<Owner & { dogs: string }>(
+    `SELECT o.*, GROUP_CONCAT(d.name, ', ') AS dogs FROM owners o
+     JOIN dog_owners x ON x.owner_id = o.id JOIN dogs d ON d.id = x.dog_id
+     GROUP BY o.id`,
+  ).sort((a, b) => a.name.localeCompare(b.name, "ru"));
+}
+
+export function dogTagsMap(): Map<string, Tag[]> {
+  const rows = all<Tag & { dog_id: string }>("SELECT x.dog_id, t.id, t.name FROM dog_tags x JOIN tags t ON t.id = x.tag_id");
+  const m = new Map<string, Tag[]>();
+  for (const r of rows) m.set(r.dog_id, [...(m.get(r.dog_id) ?? []), { id: r.id, name: r.name }].sort((a, b) => a.name.localeCompare(b.name, "ru")));
+  return m;
+}
+
+export function dogOwnersMap(): Map<string, Owner[]> {
+  const rows = all<Owner & { dog_id: string }>(
+    "SELECT x.dog_id, o.id, o.name, o.phone, o.telegram FROM dog_owners x JOIN owners o ON o.id = x.owner_id ORDER BY x.sort",
+  );
+  const m = new Map<string, Owner[]>();
+  for (const { dog_id, ...o } of rows) m.set(dog_id, [...(m.get(dog_id) ?? []), o]);
+  return m;
+}
+
+export const tagsOf = (dogId: string) => dogTagsMap().get(dogId) ?? [];
+export const ownersOf = (dogId: string) => dogOwnersMap().get(dogId) ?? [];
 
 /** Last non-cancelled visit that already happened, per dog. */
 export function lastVisits(): Map<string, string> {

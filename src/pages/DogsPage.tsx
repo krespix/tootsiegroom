@@ -1,9 +1,26 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useDbVersion } from "../db/db";
-import { dogAppointments, dogsWithUpcoming, getDog, lastVisits, listDogs, saveDog, usedProducts, type Dog } from "../db/repo";
+import {
+  dogAppointments,
+  dogOwnersMap,
+  dogsWithUpcoming,
+  dogTagsMap,
+  getDog,
+  lastVisits,
+  listBreeds,
+  listDogs,
+  listOwners,
+  listTags,
+  ownersOf,
+  saveDog,
+  tagsOf,
+  usedProducts,
+  type Dog,
+  type Owner,
+} from "../db/repo";
 import { ageLabel, dayMonth, fromLocalStamp, hhmm, weeksAgo } from "../lib/dates";
-import { money, plural, splitTags } from "../lib/format";
+import { money, plural } from "../lib/format";
 import { Avatar, PhotoSlot, SearchBox, Thumb, useDesktop } from "../components/common";
 import { Icon } from "../components/Icon";
 
@@ -13,17 +30,33 @@ function DogList({ selected }: { selected?: string }) {
   const dogs = listDogs();
   const upcoming = dogsWithUpcoming();
   const last = lastVisits();
+  const tagMap = dogTagsMap();
+  const ownerMap = dogOwnersMap();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [tagId, setTagId] = useState("");
+  const [ownerId, setOwnerId] = useState("");
+  const [breed, setBreed] = useState("");
 
   const longAgo = (d: Dog) => {
     const l = last.get(d.id);
     return !!l && !upcoming.has(d.id) && Date.now() - fromLocalStamp(l).getTime() > 8 * 7 * 86_400_000;
   };
   const q = query.trim().toLowerCase();
+  const haystack = (d: Dog) =>
+    [d.name, d.breed, ...(ownerMap.get(d.id) ?? []).flatMap((o) => [o.name, o.phone]), ...(tagMap.get(d.id) ?? []).map((t) => t.name)]
+      .join(" ")
+      .toLowerCase();
   const shown = dogs
-    .filter((d) => !q || `${d.name} ${d.breed} ${d.owner_name} ${d.owner_phone}`.toLowerCase().includes(q))
-    .filter((d) => (filter === "booked" ? upcoming.has(d.id) : filter === "long" ? longAgo(d) : true));
+    .filter((d) => !q || haystack(d).includes(q))
+    .filter((d) => (filter === "booked" ? upcoming.has(d.id) : filter === "long" ? longAgo(d) : true))
+    .filter((d) => !tagId || (tagMap.get(d.id) ?? []).some((t) => t.id === tagId))
+    .filter((d) => !ownerId || (ownerMap.get(d.id) ?? []).some((o) => o.id === ownerId))
+    .filter((d) => !breed || d.breed.toLowerCase() === breed.toLowerCase());
+  const tags = listTags();
+  const owners = listOwners();
+  const breeds = listBreeds();
+  const anyFilter = tagId || ownerId || breed;
 
   return (
     <section className="stack" aria-label="Список собак" style={{ gap: 16 }}>
@@ -47,6 +80,56 @@ function DogList({ selected }: { selected?: string }) {
           </button>
         ))}
       </div>
+      {dogs.length > 0 && (
+        <div className="grid-auto" style={{ ["--min" as string]: "140px", gap: 8 }}>
+          <label className="field small">
+            Особенность
+            <select className="input" value={tagId} onChange={(e) => setTagId(e.target.value)}>
+              <option value="">Все</option>
+              {tags.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field small">
+            Хозяин
+            <select className="input" value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
+              <option value="">Все</option>
+              {owners.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {[o.name, o.phone].filter(Boolean).join(" · ")}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field small">
+            Порода
+            <select className="input" value={breed} onChange={(e) => setBreed(e.target.value)}>
+              <option value="">Все</option>
+              {breeds.map((b) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+      {anyFilter && (
+        <button
+          className="btn link small"
+          style={{ alignSelf: "flex-start" }}
+          onClick={() => {
+            setTagId("");
+            setOwnerId("");
+            setBreed("");
+          }}
+        >
+          Сбросить фильтры · найдено {shown.length}
+        </button>
+      )}
       {dogs.length === 0 && (
         <div className="empty">
           Пока ни одной собаки
@@ -66,7 +149,9 @@ function DogList({ selected }: { selected?: string }) {
             <Avatar id={d.id} name={d.name} photo={d.photo} size={52} />
             <span className="col" style={{ flex: 1 }}>
               <span style={{ fontFamily: "var(--head)", fontWeight: 700 }}>{d.name}</span>
-              <span className="small bold muted">{[d.breed, ageLabel(d.birthday)].filter(Boolean).join(" · ")}</span>
+              <span className="small bold muted">
+                {[d.breed, ageLabel(d.birthday), (ownerMap.get(d.id) ?? []).map((o) => o.name).filter(Boolean).join(", ")].filter(Boolean).join(" · ")}
+              </span>
             </span>
             {upcoming.has(d.id) && <span className="badge-done">записана</span>}
           </Link>
@@ -76,11 +161,33 @@ function DogList({ selected }: { selected?: string }) {
   );
 }
 
+export function OwnerRow({ owner, label = "Хозяин" }: { owner: Owner; label?: string }) {
+  const tg = owner.telegram.replace(/^@/, "");
+  return (
+    <div className="row" style={{ padding: "12px 14px", borderRadius: 16, background: "var(--bg)" }}>
+      <div className="stack" style={{ gap: 0, flex: "1 1 160px" }}>
+        <span className="small bold muted">{label}</span>
+        <span className="bold">{[owner.name, owner.phone].filter(Boolean).join(" · ")}</span>
+      </div>
+      {owner.phone && (
+        <a href={`tel:${owner.phone}`} className="btn">
+          <Icon name="phone" size={16} /> Позвонить
+        </a>
+      )}
+      {tg && (
+        <a href={`https://t.me/${tg}`} target="_blank" rel="noreferrer" className="btn">
+          <Icon name="send" size={16} /> Telegram
+        </a>
+      )}
+    </div>
+  );
+}
+
 function DogDetail({ dog }: { dog: Dog }) {
   const visits = dogAppointments(dog.id);
-  const tags = splitTags(dog.tags);
+  const tags = tagsOf(dog.id);
+  const owners = ownersOf(dog.id);
   const facts = [dog.breed, dog.sex, dog.weight && `${dog.weight} кг`].filter(Boolean).join(" · ");
-  const tg = dog.owner_telegram.replace(/^@/, "");
 
   return (
     <article className="stack" style={{ gap: 20 }} aria-label="Карточка собаки">
@@ -103,29 +210,14 @@ function DogDetail({ dog }: { dog: Dog }) {
               </span>
             )}
             {tags.map((t, i) => (
-              <span key={t} className="tag" style={{ background: ["#CFF3E9", "#E4DDFF", "#D4ECFF", "#FFD6E5"][i % 4] }}>
-                {t}
+              <span key={t.id} className="tag" style={{ background: ["#CFF3E9", "#E4DDFF", "#D4ECFF", "#FFD6E5"][i % 4] }}>
+                {t.name}
               </span>
             ))}
           </div>
-          {(dog.owner_name || dog.owner_phone || tg) && (
-            <div className="row" style={{ padding: "12px 14px", borderRadius: 16, background: "var(--bg)" }}>
-              <div className="stack" style={{ gap: 0, flex: "1 1 160px" }}>
-                <span className="small bold muted">Хозяин</span>
-                <span className="bold">{[dog.owner_name, dog.owner_phone].filter(Boolean).join(" · ")}</span>
-              </div>
-              {dog.owner_phone && (
-                <a href={`tel:${dog.owner_phone}`} className="btn">
-                  <Icon name="phone" size={16} /> Позвонить
-                </a>
-              )}
-              {tg && (
-                <a href={`https://t.me/${tg}`} target="_blank" rel="noreferrer" className="btn">
-                  <Icon name="send" size={16} /> Telegram
-                </a>
-              )}
-            </div>
-          )}
+          {owners.map((o) => (
+            <OwnerRow key={o.id} owner={o} />
+          ))}
         </div>
       </div>
 

@@ -8,13 +8,15 @@ import {
   getDog,
   listBrands,
   listProducts,
+  ownersOf,
   rescheduleAppointment,
   saveVisit,
   setAppointmentPhoto,
+  tagsOf,
   usedProducts,
 } from "../db/repo";
 import { fromLocalStamp, hhmm, slotLabel, toDateKey } from "../lib/dates";
-import { money, splitTags } from "../lib/format";
+import { money } from "../lib/format";
 import { askConfirm } from "../lib/dialog";
 import { Avatar, PhotoSlot, useToast } from "../components/common";
 import { Icon } from "../components/Icon";
@@ -41,6 +43,8 @@ function ApptView({ id }: { id: string }) {
   const nav = useNavigate();
   const appt = getAppointment(id)!;
   const dog = getDog(appt.dog_id)!;
+  const owners = ownersOf(dog.id);
+  const tags = tagsOf(dog.id);
   const brands = listBrands();
   const products = listProducts();
   const [toast, showToast] = useToast();
@@ -258,21 +262,24 @@ function ApptView({ id }: { id: string }) {
               <Avatar id={dog.id} name={dog.name} photo={dog.photo} size={56} />
               <span className="stack" style={{ gap: 0 }}>
                 <span style={{ fontFamily: "var(--head)", fontWeight: 700, fontSize: 18 }}>{dog.name}</span>
-                <span className="small bold muted">{[dog.breed, dog.owner_name].filter(Boolean).join(" · ")}</span>
+                <span className="small bold muted">{[dog.breed, owners.map((o) => o.name).filter(Boolean).join(", ")].filter(Boolean).join(" · ")}</span>
               </span>
             </Link>
-            {dog.owner_phone && (
-              <a href={`tel:${dog.owner_phone}`} className="btn">
-                <Icon name="phone" size={16} /> {dog.owner_phone}
-              </a>
-            )}
-            {(dog.notes || dog.tags) && (
+            {owners
+              .filter((o) => o.phone)
+              .map((o) => (
+                <a key={o.id} href={`tel:${o.phone}`} className="btn">
+                  <Icon name="phone" size={16} /> {owners.length > 1 && o.name ? `${o.name}: ` : ""}
+                  {o.phone}
+                </a>
+              ))}
+            {(dog.notes || tags.length > 0) && (
               <div className="stack" style={{ padding: 12, borderRadius: 14, background: "var(--butter)", gap: 8 }}>
-                {dog.tags && (
+                {tags.length > 0 && (
                   <div className="row" style={{ gap: 6 }}>
-                    {splitTags(dog.tags).map((t) => (
-                      <span key={t} className="tag">
-                        {t}
+                    {tags.map((t) => (
+                      <span key={t.id} className="tag">
+                        {t.name}
                       </span>
                     ))}
                   </div>
