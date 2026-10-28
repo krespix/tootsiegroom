@@ -22,9 +22,14 @@ function b64url(bytes: Uint8Array) {
  * home-screen apps on iOS, which open external pages in a separate browser.
  */
 export async function startAuth(): Promise<string> {
-  const verifier = b64url(crypto.getRandomValues(new Uint8Array(48)));
+  // Reuse the pending verifier: iOS often reloads a home-screen app after a
+  // trip to Safari, and a fresh verifier would orphan the code Dropbox showed.
+  let verifier = await get<string>(VERIFIER_KEY);
+  if (!verifier) {
+    verifier = b64url(crypto.getRandomValues(new Uint8Array(48)));
+    await set(VERIFIER_KEY, verifier);
+  }
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
-  await set(VERIFIER_KEY, verifier);
   const q = new URLSearchParams({
     client_id: DROPBOX_APP_KEY,
     response_type: "code",
@@ -40,7 +45,13 @@ async function tokenRequest(body: Record<string, string>) {
     method: "POST",
     body: new URLSearchParams({ ...body, client_id: DROPBOX_APP_KEY }),
   });
-  if (!res.ok) throw new Error(`Dropbox: ${res.status} ${await res.text()}`);
+  if (!res.ok) {
+    const text = await res.text();
+    if (body.grant_type === "authorization_code" && text.includes("invalid_grant")) {
+      throw new Error("Код не подошёл: он одноразовый и живёт несколько минут. Нажми «Открыть Dropbox» ещё раз и сразу вставь новый код.");
+    }
+    throw new Error(`Dropbox: ${res.status} ${text}`);
+  }
   return (await res.json()) as { access_token: string; refresh_token?: string; expires_in: number };
 }
 
