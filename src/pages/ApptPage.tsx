@@ -77,8 +77,8 @@ function ApptView({ id }: { id: string }) {
   const previousProducts = previous ? usedProducts(previous.id) : [];
 
   const save = () => {
-    saveVisit(id, { paid: paid === "" ? null : Number(paid), notes, productIds: [...picked] });
-    showToast("Визит сохранён");
+    const filled = saveVisit(id, { paid: paid === "" ? null : Number(paid), notes, productIds: [...picked] });
+    showToast(filled ? "Визит сохранён" : "Сохранено. Пока пусто — визит не заполнен");
   };
 
   const title = `${appt.dog_name} · ${appt.proc_name}${appt.variant_name ? `, ${appt.variant_name.toLowerCase()}` : ""}`;

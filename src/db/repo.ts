@@ -333,21 +333,39 @@ export function cancelAppointment(id: string) {
   write(() => run("UPDATE appointments SET status = 'cancelled', updated_at = ? WHERE id = ?", [nowIso(), id]));
 }
 
-export function setAppointmentPhoto(id: string, which: "photo_before" | "photo_after", name: string | null) {
-  write(() => run(`UPDATE appointments SET ${which} = ?, updated_at = ? WHERE id = ?`, [name, nowIso(), id]));
+/**
+ * A visit counts as filled when it holds something beyond the booking:
+ * products, a photo or a note. Payment alone doesn't count — it is
+ * prefilled from the price list.
+ */
+function visitHasContent(id: string): boolean {
+  const row = one<{ notes: string; photo_before: string | null; photo_after: string | null; n: number }>(
+    `SELECT notes, photo_before, photo_after,
+       (SELECT COUNT(*) FROM appointment_products WHERE appointment_id = a.id) AS n
+     FROM appointments a WHERE id = ?`,
+    [id],
+  );
+  return !!row && (row.n > 0 || row.notes.trim() !== "" || !!row.photo_before || !!row.photo_after);
 }
 
-export function saveVisit(id: string, v: { paid: number | null; notes: string; productIds: string[] }) {
+export function setAppointmentPhoto(id: string, which: "photo_before" | "photo_after", name: string | null) {
   write(() => {
+    run(`UPDATE appointments SET ${which} = ?, updated_at = ? WHERE id = ?`, [name, nowIso(), id]);
+    // Adding a photo doesn't complete a visit (that's "Сохранить визит"), but
+    // removing the last piece of content makes it unfilled again.
+    if (!visitHasContent(id)) run("UPDATE appointments SET filled_at = NULL WHERE id = ?", [id]);
+  });
+}
+
+/** Saves the visit report; returns whether the visit now counts as filled. */
+export function saveVisit(id: string, v: { paid: number | null; notes: string; productIds: string[] }): boolean {
+  return write(() => {
     const now = nowIso();
-    run("UPDATE appointments SET paid = ?, notes = ?, filled_at = COALESCE(filled_at, ?), updated_at = ? WHERE id = ?", [
-      v.paid,
-      v.notes,
-      now,
-      now,
-      id,
-    ]);
+    run("UPDATE appointments SET paid = ?, notes = ?, updated_at = ? WHERE id = ?", [v.paid, v.notes, now, id]);
     run("DELETE FROM appointment_products WHERE appointment_id = ?", [id]);
     v.productIds.forEach((pid) => run("INSERT INTO appointment_products (appointment_id, product_id) VALUES (?,?)", [id, pid]));
+    const filled = visitHasContent(id);
+    run("UPDATE appointments SET filled_at = CASE WHEN ? THEN COALESCE(filled_at, ?) ELSE NULL END WHERE id = ?", [filled ? 1 : 0, now, id]);
+    return filled;
   });
 }
