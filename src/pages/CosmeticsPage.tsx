@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useDbVersion } from "../db/db";
 import { archiveProduct, listBrands, listProducts, productUsage, renameBrand, saveBrand, saveProduct, type Brand, type Product, type ProductInput } from "../db/repo";
 import { PASTELS, plural } from "../lib/format";
+import { askConfirm, askText } from "../lib/dialog";
 import { usePhotoUrl } from "../lib/photos";
 import { PhotoSlot, SearchBox } from "../components/common";
 import { Icon } from "../components/Icon";
@@ -80,8 +81,14 @@ function ProductEditor({ initial, brands, lines, onDone }: { initial: ProductInp
         {p.id && (
           <button
             className="btn link danger"
-            onClick={() => {
-              if (window.confirm(`Убрать «${p.name}» из справочника? В истории визитов оно останется.`)) {
+            onClick={async () => {
+              const ok = await askConfirm({
+                title: `Убрать «${p.name}»?`,
+                text: "Из справочника исчезнет, в истории визитов останется.",
+                okText: "Убрать",
+                danger: true,
+              });
+              if (ok) {
                 archiveProduct(p.id!);
                 onDone();
               }
@@ -104,8 +111,8 @@ export function CosmeticsPage() {
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<ProductInput | null>(null);
 
-  const addBrand = () => {
-    const name = window.prompt("Название бренда")?.trim();
+  const addBrand = async () => {
+    const name = await askText({ title: "Новый бренд", placeholder: "Например, Гидра", okText: "Добавить" });
     if (name) setBrandFilter(saveBrand(name, PASTELS[brands.length % PASTELS.length]));
   };
   const linesOf = (brandId: string) => [...new Set(products.filter((p) => p.brand_id === brandId && p.line).map((p) => p.line))];
@@ -175,8 +182,8 @@ export function CosmeticsPage() {
                       <button
                         className="btn icon"
                         aria-label={`Переименовать ${b.name}`}
-                        onClick={() => {
-                          const name = window.prompt("Новое название бренда", b.name)?.trim();
+                        onClick={async () => {
+                          const name = await askText({ title: "Переименовать бренд", initial: b.name, okText: "Сохранить" });
                           if (name) renameBrand(b.id, name);
                         }}
                       >

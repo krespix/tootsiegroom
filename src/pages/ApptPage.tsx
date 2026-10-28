@@ -16,6 +16,7 @@ import {
 import { fromLocalStamp, hhmm, slotLabel, toDateKey } from "../lib/dates";
 import { money, splitTags } from "../lib/format";
 import { appointmentTitle, buildIcs, openInCalendar } from "../lib/ics";
+import { askConfirm } from "../lib/dialog";
 import { Avatar, PhotoSlot, useToast } from "../components/common";
 import { Icon } from "../components/Icon";
 
@@ -115,8 +116,15 @@ function ApptView({ id }: { id: string }) {
             </button>
             <button
               className="btn danger"
-              onClick={() => {
-                if (window.confirm(`Отменить запись ${appt.dog_name}?`)) {
+              onClick={async () => {
+                const ok = await askConfirm({
+                  title: `Отменить запись ${appt.dog_name}?`,
+                  text: "Если она в Apple Календаре — удали событие там вручную.",
+                  okText: "Отменить запись",
+                  cancelText: "Не отменять",
+                  danger: true,
+                });
+                if (ok) {
                   cancelAppointment(id);
                   nav("/");
                 }

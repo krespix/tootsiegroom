@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { exportBytes, replaceDb, write } from "../db/db";
 import { toDateKey } from "../lib/dates";
+import { askConfirm } from "../lib/dialog";
 import { DROPBOX_APP_KEY, startAuth } from "../sync/dropbox";
 import { connectDropbox, disconnectDropbox, syncNow, useSyncState } from "../sync/sync";
 import { SyncLabel } from "../components/Layout";
@@ -33,8 +34,14 @@ function DropboxSection() {
           </button>
           <button
             className="btn danger"
-            onClick={() => {
-              if (window.confirm("Отключить Dropbox на этом устройстве? Данные на устройстве и в Dropbox останутся.")) void disconnectDropbox();
+            onClick={async () => {
+              const ok = await askConfirm({
+                title: "Отключить Dropbox?",
+                text: "Только на этом устройстве. Данные здесь и в Dropbox останутся.",
+                okText: "Отключить",
+                danger: true,
+              });
+              if (ok) void disconnectDropbox();
             }}
           >
             Отключить
@@ -133,7 +140,14 @@ export function SettingsPage() {
                 onChange={async (e) => {
                   const f = e.target.files?.[0];
                   e.target.value = "";
-                  if (!f || !window.confirm("Заменить все данные на этом устройстве содержимым файла?")) return;
+                  if (!f) return;
+                  const ok = await askConfirm({
+                    title: "Восстановить из файла?",
+                    text: "Все данные на этом устройстве заменятся содержимым файла, и он уйдёт в Dropbox.",
+                    okText: "Восстановить",
+                    danger: true,
+                  });
+                  if (!ok) return;
                   await replaceDb(new Uint8Array(await f.arrayBuffer()));
                   write(() => {}); // mark as changed so the restored copy is uploaded
                   showToast("База восстановлена");

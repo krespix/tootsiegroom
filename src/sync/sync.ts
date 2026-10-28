@@ -2,6 +2,7 @@ import { get, set } from "idb-keyval";
 import { useSyncExternalStore } from "react";
 import { exportBytes, isEmpty, onLocalChange, replaceDb } from "../db/db";
 import * as dropbox from "./dropbox";
+import { askConfirm } from "../lib/dialog";
 
 // Whole-database sync: the SQLite file is uploaded after local changes and
 // downloaded when Dropbox has a newer copy. One user, so no merging —
@@ -73,7 +74,7 @@ async function doSync() {
     } else if (remote.rev !== meta.rev) {
       const localIsNewer = meta.dirty && meta.rev !== null && (meta.dirtySince ?? 0) > Date.parse(remote.server_modified);
       if (localIsNewer) await push();
-      else if (meta.rev === null && !isEmpty() && !confirmFirstDownload()) await push();
+      else if (meta.rev === null && !isEmpty() && !(await confirmFirstDownload())) await push();
       else await pull();
     } else if (meta.dirty) {
       await push();
@@ -86,9 +87,12 @@ async function doSync() {
 }
 
 function confirmFirstDownload() {
-  return window.confirm(
-    "В Dropbox уже есть база TootsieGroom.\n\nОК — загрузить её (то, что введено на этом устройстве, заменится).\nОтмена — заменить базу в Dropbox данными с этого устройства.",
-  );
+  return askConfirm({
+    title: "В Dropbox уже есть база",
+    text: "Загрузить её на это устройство? То, что успели ввести здесь до подключения, заменится.\n\nИли наоборот — заменить базу в Dropbox данными с этого устройства.",
+    okText: "Загрузить из Dropbox",
+    cancelText: "Оставить данные устройства",
+  });
 }
 
 async function push() {

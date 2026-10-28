@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useDbVersion } from "../db/db";
 import { archiveProcedure, listProcedures, saveProcedure, type ProcedureInput, type VariantInput } from "../db/repo";
 import { PASTELS, duration, money } from "../lib/format";
+import { askConfirm } from "../lib/dialog";
 import { DurationFields } from "../components/common";
 import { Icon } from "../components/Icon";
 
@@ -107,8 +108,9 @@ function ProcedureEditor({ initial, onDone }: { initial: ProcedureInput; onDone:
         {p.id && (
           <button
             className="btn link danger"
-            onClick={() => {
-              if (window.confirm(`Убрать «${p.name}» из списка? Старые записи останутся.`)) {
+            onClick={async () => {
+              const ok = await askConfirm({ title: `Убрать «${p.name}»?`, text: "Из списка исчезнет, старые записи останутся.", okText: "Убрать", danger: true });
+              if (ok) {
                 archiveProcedure(p.id!);
                 onDone();
               }

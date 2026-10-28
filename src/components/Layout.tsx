@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { Icon, type IconName } from "./Icon";
 import { useSyncState } from "../sync/sync";
+import { DialogHost } from "./DialogHost";
 
 const SECTIONS: { to: string; label: string; icon: IconName }[] = [
   { to: "/", label: "Календарь", icon: "calendar" },
@@ -86,6 +87,7 @@ export function Layout() {
           Процедуры
         </NavLink>
       </nav>
+      <DialogHost />
     </div>
   );
 }
