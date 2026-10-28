@@ -16,7 +16,7 @@ import {
 import { addMinutes, fromLocalStamp, hhmm, slotLabel, toDateKey } from "../lib/dates";
 import { PASTELS, duration, money } from "../lib/format";
 import { buildIcs, openInCalendar } from "../lib/ics";
-import { Avatar, DurationFields, SearchBox } from "../components/common";
+import { Avatar, DurationFields, NumberInput, SearchBox } from "../components/common";
 import { Icon } from "../components/Icon";
 
 export function BookPage() {
@@ -215,7 +215,7 @@ export function BookPage() {
                 <DurationFields minutes={np.minutes} onChange={(m) => setNp({ ...np, minutes: m })} />
                 <label className="field">
                   Цена, ₾
-                  <input className="input" type="number" min={0} value={np.price} onChange={(e) => setNp({ ...np, price: +e.target.value })} />
+                  <NumberInput min={0} value={np.price} onChange={(price) => setNp({ ...np, price })} />
                 </label>
                 <p className="small muted bold">Сохранится в справочник. Подтипы и цвет — потом в «Процедурах».</p>
               </div>

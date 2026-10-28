@@ -177,7 +177,7 @@ function ApptView({ id }: { id: string }) {
               </div>
               <label className="field" style={{ flex: "1 1 180px" }}>
                 Оплачено, ₾
-                <input className="input" type="number" min={0} step={5} inputMode="decimal" value={paid} onChange={(e) => setPaid(e.target.value)} style={{ background: "var(--butter)", fontWeight: 800 }} />
+                <input className="input" type="number" min={0} step={5} inputMode="decimal" value={paid} onFocus={(e) => e.target.select()} onChange={(e) => setPaid(e.target.value)} style={{ background: "var(--butter)", fontWeight: 800 }} />
               </label>
             </div>
           </section>

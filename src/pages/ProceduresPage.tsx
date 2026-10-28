@@ -3,7 +3,7 @@ import { useDbVersion } from "../db/db";
 import { archiveProcedure, listProcedures, saveProcedure, type ProcedureInput, type VariantInput } from "../db/repo";
 import { PASTELS, duration, money } from "../lib/format";
 import { askConfirm } from "../lib/dialog";
-import { DurationFields } from "../components/common";
+import { DurationFields, NumberInput } from "../components/common";
 import { Icon } from "../components/Icon";
 
 const COLOR_NAMES = ["Розовый", "Мятный", "Жёлтый", "Сиреневый", "Голубой"];
@@ -57,9 +57,9 @@ function ProcedureEditor({ initial, onDone }: { initial: ProcedureInput; onDone:
         {p.variants.map((v, i) => (
           <div key={i} className="variant-row">
             <input className="input" aria-label="Название подтипа" value={v.name} placeholder="Мини · до 5 кг" onChange={(e) => setVariant(i, { name: e.target.value })} />
-            <input className="input" aria-label="Часы" type="number" min={0} value={Math.floor(v.minutes / 60)} onChange={(e) => setVariant(i, { minutes: Math.max(0, +e.target.value) * 60 + (v.minutes % 60) })} />
-            <input className="input" aria-label="Минуты" type="number" min={0} max={55} step={5} value={v.minutes % 60} onChange={(e) => setVariant(i, { minutes: Math.floor(v.minutes / 60) * 60 + Math.max(0, +e.target.value) })} />
-            <input className="input" aria-label="Цена" type="number" min={0} value={v.price} onChange={(e) => setVariant(i, { price: +e.target.value })} />
+            <NumberInput aria-label="Часы" inputMode="numeric" min={0} value={Math.floor(v.minutes / 60)} onChange={(n) => setVariant(i, { minutes: Math.floor(n) * 60 + (v.minutes % 60) })} />
+            <NumberInput aria-label="Минуты" inputMode="numeric" min={0} max={59} step={5} value={v.minutes % 60} onChange={(n) => setVariant(i, { minutes: Math.floor(v.minutes / 60) * 60 + Math.floor(n) })} />
+            <NumberInput aria-label="Цена" min={0} value={v.price} onChange={(price) => setVariant(i, { price })} />
             <button
               type="button"
               className="btn icon danger"
@@ -85,7 +85,7 @@ function ProcedureEditor({ initial, onDone }: { initial: ProcedureInput; onDone:
             <DurationFields minutes={p.minutes} onChange={(m) => set("minutes", m)} />
             <label className="field">
               Цена, ₾
-              <input className="input" type="number" min={0} value={p.price} onChange={(e) => set("price", +e.target.value)} />
+              <NumberInput min={0} value={p.price} onChange={(n) => set("price", n)} />
             </label>
           </>
         )}

@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type InputHTMLAttributes, type ReactNode } from "react";
 import { Icon } from "./Icon";
+import { askConfirm } from "../lib/dialog";
 import { initial, pastelFor } from "../lib/format";
 import { savePhoto, usePhotoUrl } from "../lib/photos";
 
@@ -25,7 +26,40 @@ export function Avatar({ id, name, photo, size = 44 }: { id: string; name: strin
   );
 }
 
-/** Tap to pick or shoot a photo; it is compressed and stored, and its file name handed to `onChange`. */
+/** Full-screen photo with optional actions; closes on backdrop tap or Esc. */
+function PhotoViewer({ url, label, onClose, children }: { url: string; label: string; onClose: () => void; children?: ReactNode }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    ref.current?.showModal();
+  }, []);
+  return (
+    <dialog
+      ref={ref}
+      className="viewer"
+      aria-label={label}
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
+      onClick={(e) => {
+        if (e.target === ref.current) onClose();
+      }}
+    >
+      <img src={url} alt={label} />
+      <div className="row" style={{ justifyContent: "center" }}>
+        {children}
+        <button type="button" className="btn" onClick={onClose}>
+          Закрыть
+        </button>
+      </div>
+    </dialog>
+  );
+}
+
+/**
+ * Empty: tap to pick or shoot a photo (compressed, stored, file name handed to `onChange`).
+ * Filled: tap to view it large, with "Заменить" and "Удалить".
+ */
 export function PhotoSlot({
   name,
   label,
@@ -39,31 +73,35 @@ export function PhotoSlot({
   tint?: string;
   width?: number | string;
   height?: number;
-  onChange: (name: string) => void;
+  onChange: (name: string | null) => void;
 }) {
   const url = usePhotoUrl(name);
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [viewing, setViewing] = useState(false);
   return (
-    <button
-      type="button"
-      className={`photo${url ? " filled" : ""}`}
-      style={{ width, height, background: url ? undefined : tint }}
-      onClick={() => input.current?.click()}
-      aria-label={url ? `${label}: заменить фото` : label}
-    >
-      {url ? (
-        <img src={url} alt={label} />
-      ) : (
-        <>
-          <Icon name="camera" size={26} />
-          {busy ? "Сохраняю…" : label}
-        </>
-      )}
+    <>
+      <button
+        type="button"
+        className={`photo${url ? " filled" : ""}`}
+        style={{ width, height, background: url ? undefined : tint }}
+        onClick={() => (url ? setViewing(true) : input.current?.click())}
+        aria-label={url ? `${label}: открыть` : label}
+      >
+        {url ? (
+          <img src={url} alt={label} />
+        ) : (
+          <>
+            <Icon name="camera" size={26} />
+            {busy ? "Сохраняю…" : label}
+          </>
+        )}
+      </button>
       <input
         ref={input}
         type="file"
         accept="image/*"
+        hidden
         onChange={async (e) => {
           const file = e.target.files?.[0];
           e.target.value = "";
@@ -76,18 +114,79 @@ export function PhotoSlot({
           }
         }}
       />
-    </button>
+      {viewing && url && (
+        <PhotoViewer url={url} label={label} onClose={() => setViewing(false)}>
+          <button
+            type="button"
+            className="btn primary"
+            onClick={() => {
+              setViewing(false);
+              input.current?.click();
+            }}
+          >
+            <Icon name="camera" size={18} /> Заменить
+          </button>
+          <button
+            type="button"
+            className="btn danger"
+            onClick={async () => {
+              const ok = await askConfirm({ title: "Удалить фото?", okText: "Удалить", danger: true });
+              if (ok) {
+                setViewing(false);
+                onChange(null);
+              }
+            }}
+          >
+            Удалить
+          </button>
+        </PhotoViewer>
+      )}
+    </>
   );
 }
 
-/** Small read-only photo thumbnail. */
+/** Small photo thumbnail; tap to view it large. */
 export function Thumb({ name, label, size = 72 }: { name: string | null; label: string; size?: number }) {
   const url = usePhotoUrl(name);
+  const [viewing, setViewing] = useState(false);
   if (!name) return null;
   return (
-    <span className="photo filled" style={{ width: size, height: size, cursor: "default" }}>
-      {url ? <img src={url} alt={label} /> : <span className="tiny">{label}</span>}
-    </span>
+    <>
+      <button type="button" className="photo filled" style={{ width: size, height: size }} onClick={() => url && setViewing(true)} aria-label={`${label}: открыть`}>
+        {url ? <img src={url} alt={label} /> : <span className="tiny">{label}</span>}
+      </button>
+      {viewing && url && <PhotoViewer url={url} label={label} onClose={() => setViewing(false)} />}
+    </>
+  );
+}
+
+/**
+ * Number input that can be cleared while typing (a controlled numeric value
+ * would snap an emptied field back to "0"). Empty counts as 0; focus selects
+ * the whole value so a new number replaces it.
+ */
+export function NumberInput({
+  value,
+  onChange,
+  ...rest
+}: { value: number; onChange: (n: number) => void } & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "type">) {
+  const [text, setText] = useState(String(value));
+  useEffect(() => {
+    setText((t) => (Number(t || 0) === value ? t : String(value)));
+  }, [value]);
+  return (
+    <input
+      className="input"
+      type="number"
+      inputMode="decimal"
+      {...rest}
+      value={text}
+      onFocus={(e) => e.target.select()}
+      onChange={(e) => {
+        setText(e.target.value);
+        onChange(e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)));
+      }}
+    />
   );
 }
 
@@ -98,11 +197,11 @@ export function DurationFields({ minutes, onChange }: { minutes: number; onChang
     <div className="row" style={{ flexWrap: "nowrap" }}>
       <label className="field" style={{ flex: 1 }}>
         Часы
-        <input className="input" type="number" min={0} value={h} onChange={(e) => onChange(Math.max(0, +e.target.value) * 60 + m)} />
+        <NumberInput inputMode="numeric" min={0} value={h} onChange={(n) => onChange(Math.floor(n) * 60 + m)} />
       </label>
       <label className="field" style={{ flex: 1 }}>
         Минуты
-        <input className="input" type="number" min={0} max={55} step={5} value={m} onChange={(e) => onChange(h * 60 + Math.max(0, +e.target.value))} />
+        <NumberInput inputMode="numeric" min={0} max={59} step={5} value={m} onChange={(n) => onChange(h * 60 + Math.floor(n))} />
       </label>
     </div>
   );
