@@ -17,7 +17,6 @@ function ProductRow({ p, uses, color, onOpen }: { p: Product; uses: number; colo
       <span className="col" style={{ gap: 2 }}>
         <span className="bold">{p.name}</span>
         <span className="small bold muted">
-          {p.low_stock ? <span style={{ color: "var(--danger)" }}>Заканчивается · </span> : null}
           {uses} {plural(uses, "визит", "визита", "визитов")}
         </span>
       </span>
@@ -59,10 +58,6 @@ function ProductEditor({ initial, brands, lines, onDone }: { initial: ProductInp
       <label className="field">
         Описание
         <textarea className="input" rows={3} value={p.description} onChange={(e) => set("description", e.target.value)} placeholder="Для кого, как разводить, на что была реакция" />
-      </label>
-      <label className="check">
-        <input type="checkbox" checked={!!p.low_stock} onChange={(e) => set("low_stock", e.target.checked ? 1 : 0)} />
-        Заканчивается
       </label>
       <button
         className="btn primary big wide"
