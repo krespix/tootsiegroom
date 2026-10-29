@@ -2,12 +2,13 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { exportBytes, replaceDb, useDbVersion, write } from "../db/db";
 import { DEFAULT_WORK_HOURS, getSetting, setSetting, setWorkHours, workHours } from "../db/repo";
 import { DEFAULT_REMIND_TEMPLATE, REMIND_FIELDS, REMIND_TEMPLATE_KEY, fillTemplate } from "../lib/remind";
+import { DEFAULT_JOKES, fxOn, greetName, greeting, jokes, jokesOn, type Joke } from "../lib/prefs";
 import { toDateKey } from "../lib/dates";
 import { askConfirm } from "../lib/dialog";
 import { DROPBOX_APP_KEY, startAuth } from "../sync/dropbox";
 import { connectDropbox, disconnectDropbox, syncNow, useSyncState } from "../sync/sync";
 import { SyncLabel } from "../components/Layout";
-import { useToast } from "../components/common";
+import { NumberInput, useToast } from "../components/common";
 
 function DropboxSection() {
   const sync = useSyncState();
@@ -214,6 +215,81 @@ function RemindTemplateCard() {
   );
 }
 
+function LookCard() {
+  useDbVersion();
+  const [name, setName] = useState(greetName());
+  const animate = fxOn();
+  return (
+    <section className="card">
+      <h2>Приветствие и анимации</h2>
+      <label className="field">
+        Имя для приветствия
+        <input className="input" value={name} placeholder="Например, Наташа" onChange={(e) => setName(e.target.value)} onBlur={() => setSetting("greet_name", name.trim() || null)} />
+      </label>
+      <p className="small muted bold">На главном экране: «{greeting(new Date(), name)}»</p>
+      <label className="row bold" style={{ gap: 10, flexWrap: "nowrap", cursor: "pointer" }}>
+        <input type="checkbox" checked={animate} onChange={(e) => setSetting("fx_off", e.target.checked ? null : "1")} style={{ width: 22, height: 22, accentColor: "var(--pink)" }} />
+        Лапки и анимации
+      </label>
+    </section>
+  );
+}
+
+function JokesCard() {
+  useDbVersion();
+  const [list, setList] = useState<Joke[]>(() => jokes());
+  const on = jokesOn();
+  const isDefault = JSON.stringify(list) === JSON.stringify(DEFAULT_JOKES);
+  const save = (next: Joke[]) => {
+    setList(next);
+    const same = JSON.stringify(next) === JSON.stringify(DEFAULT_JOKES);
+    setSetting("jokes", same ? null : JSON.stringify(next));
+  };
+  const patch = (i: number, p: Partial<Joke>) => save(list.map((j, k) => (k === i ? { ...j, ...p } : j)));
+
+  return (
+    <section className="card">
+      <h2>Шутки про заработок</h2>
+      <label className="row bold" style={{ gap: 10, flexWrap: "nowrap", cursor: "pointer" }}>
+        <input type="checkbox" checked={on} onChange={(e) => setSetting("jokes_off", e.target.checked ? null : "1")} style={{ width: 22, height: 22, accentColor: "var(--pink)" }} />
+        Показывать шутки
+      </label>
+      {on && (
+        <>
+          <p className="small muted bold">Показывается одна шутка — с самым большим порогом, который уже заработан за день.</p>
+          {list.map((j, i) => (
+            <div key={i} className="stack" style={{ gap: 8, padding: 12, borderRadius: 14, background: "var(--bg)" }}>
+              <div className="row" style={{ flexWrap: "nowrap", alignItems: "flex-end" }}>
+                <label className="field" style={{ flex: "0 1 140px" }}>
+                  От, ₾
+                  <NumberInput min={0} value={j.min} onChange={(min) => patch(i, { min })} />
+                </label>
+                <button type="button" className="btn link danger" style={{ marginLeft: "auto" }} onClick={() => save(list.filter((_, k) => k !== i))}>
+                  Убрать
+                </button>
+              </div>
+              <label className="field">
+                Текст
+                <textarea className="input" rows={2} value={j.text} onChange={(e) => setList(list.map((x, k) => (k === i ? { ...x, text: e.target.value } : x)))} onBlur={() => save(list)} />
+              </label>
+            </div>
+          ))}
+          <div className="row">
+            <button type="button" className="btn dashed" onClick={() => save([...list, { min: (Math.max(0, ...list.map((j) => j.min)) || 0) + 100, text: "" }])}>
+              + Шутка
+            </button>
+            {!isDefault && (
+              <button type="button" className="btn link" onClick={() => save(DEFAULT_JOKES)}>
+                Вернуть исходные
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 export function SettingsPage() {
   const file = useRef<HTMLInputElement>(null);
   const [toast, showToast] = useToast();
@@ -237,6 +313,10 @@ export function SettingsPage() {
           <WorkHoursCard />
 
           <RemindTemplateCard />
+
+          <LookCard />
+
+          <JokesCard />
 
           <section className="card">
             <h2>Синхронизация через Dropbox</h2>

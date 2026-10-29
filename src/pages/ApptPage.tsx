@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useDbVersion } from "../db/db";
 import {
   appointmentsBetween,
@@ -22,6 +22,7 @@ import { addDays, fromLocalStamp, hhmm, slotLabel, toDateKey } from "../lib/date
 import { clashLabel, clashes } from "../lib/slots";
 import { duration, money } from "../lib/format";
 import { askConfirm } from "../lib/dialog";
+import { celebrate } from "../lib/fx";
 import { Avatar, PhotoSlot, Thumb, flash, useToast } from "../components/common";
 import { Icon } from "../components/Icon";
 import { ContactLink } from "../components/OwnerRow";
@@ -60,7 +61,8 @@ function ApptView({ id }: { id: string }) {
   const [notes, setNotes] = useState(appt.notes);
   const [picked, setPicked] = useState<Set<string>>(() => new Set(usedProducts(id).map((p) => p.id)));
   const [brandId, setBrandId] = useState<string | null>(brands[0]?.id ?? null);
-  const [editing, setEditing] = useState(false);
+  // ?edit=1 (from the calendar's swipe action) opens the change panel straight away.
+  const [editing, setEditing] = useState(useSearchParams()[0].get("edit") === "1");
   const [newDate, setNewDate] = useState(appt.starts_at.slice(0, 10));
   const [newTime, setNewTime] = useState(appt.starts_at.slice(11, 16));
   const procs = listProcedures();
@@ -109,6 +111,7 @@ function ApptView({ id }: { id: string }) {
     const paidValue = paid === "" || Number(paid) === appt.price ? null : Number(paid);
     const filled = saveVisit(id, { paid: paidValue, notes, productIds: [...picked] });
     flash(filled ? "Визит сохранён" : "Сохранено. Пока пусто — визит не заполнен");
+    if (filled) celebrate();
     close();
   };
 

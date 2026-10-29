@@ -3,6 +3,7 @@ import { Icon } from "./Icon";
 import { askConfirm } from "../lib/dialog";
 import { initial, pastelFor } from "../lib/format";
 import { savePhoto, usePhotoUrl } from "../lib/photos";
+import { fxEnabled } from "../lib/fx";
 
 export function useMedia(query: string) {
   const [match, setMatch] = useState(() => window.matchMedia(query).matches);
@@ -279,4 +280,35 @@ export function FlashHost() {
     };
   }, [show]);
   return toast;
+}
+
+/** A number that counts up to `value` when it appears or changes. */
+export function useCountUp(value: number, ms = 700) {
+  const [shown, setShown] = useState(() => (fxEnabled() ? 0 : value));
+  const current = useRef(shown);
+  useEffect(() => {
+    if (!fxEnabled()) {
+      current.current = value;
+      setShown(value);
+      return;
+    }
+    const from = current.current;
+    const start = performance.now();
+    let raf = 0;
+    const tick = (t: number) => {
+      const k = Math.min(1, (t - start) / ms);
+      const v = from + (value - from) * (1 - Math.pow(1 - k, 3));
+      current.current = v;
+      setShown(v);
+      if (k < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value, ms]);
+  return shown;
+}
+
+/** Renders a count-up number through `format`. */
+export function CountUp({ value, format = (n) => String(Math.round(n)) }: { value: number; format?: (n: number) => string }) {
+  return <>{format(useCountUp(value))}</>;
 }

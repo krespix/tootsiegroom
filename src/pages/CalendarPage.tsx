@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState, type ReactNode, type TouchEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useDbVersion } from "../db/db";
 import { appointmentsBetween, dogsWithUpcoming, lastVisits, listDogs, unfilledAppointments, workHours, type AppointmentRow } from "../db/repo";
@@ -20,7 +21,9 @@ import {
   weekLabel,
   weeksAgo,
 } from "../lib/dates";
-import { earningJoke, money, plural } from "../lib/format";
+import { money, plural } from "../lib/format";
+import { earningJoke, greetName, greeting, jokeLevel } from "../lib/prefs";
+import { celebrate } from "../lib/fx";
 import { Avatar, useDesktop, useNow } from "../components/common";
 import { Icon } from "../components/Icon";
 import { SyncLabel } from "../components/Layout";
@@ -92,6 +95,100 @@ function dayItems(day: Date, appts: AppointmentRow[], now: Date) {
   return { items: items.sort((x, y) => x.at.localeCompare(y.at)), hasFree: free.length > 0 };
 }
 
+const ACTIONS_W = 176;
+
+/** Phone: swipe a booking left to reveal Заполнить / Перенести. */
+function SwipeCard({ a, children }: { a: AppointmentRow; children: ReactNode }) {
+  const [x, setXState] = useState(0);
+  // Touch events can arrive faster than renders, so the handlers read the offset from a ref.
+  const xRef = useRef(0);
+  const setX = (v: number) => {
+    xRef.current = v;
+    setXState(v);
+  };
+  const [dragging, setDragging] = useState(false);
+  const touch = useRef<{ x: number; y: number; base: number; dir?: "h" | "v" } | null>(null);
+  const open = x <= -ACTIONS_W / 2;
+
+  const onStart = (e: TouchEvent) => {
+    e.stopPropagation(); // the day list must not page while a card is being swiped
+    const t = e.touches[0];
+    touch.current = { x: t.clientX, y: t.clientY, base: xRef.current };
+  };
+  const onMove = (e: TouchEvent) => {
+    const s = touch.current;
+    if (!s) return;
+    const t = e.touches[0];
+    const dx = t.clientX - s.x;
+    const dy = t.clientY - s.y;
+    if (!s.dir) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      s.dir = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
+    }
+    if (s.dir === "h") {
+      setDragging(true);
+      setX(Math.min(0, Math.max(-ACTIONS_W - 24, s.base + dx)));
+    }
+  };
+  const onEnd = (e: TouchEvent) => {
+    e.stopPropagation();
+    const s = touch.current;
+    touch.current = null;
+    setDragging(false);
+    if (s?.dir === "h") setX(xRef.current < -ACTIONS_W / 3 ? -ACTIONS_W : 0);
+  };
+
+  return (
+    <div className="swipe">
+      <div className="swipe-actions" aria-hidden={!open}>
+        <Link to={`/appt/${a.id}`} className="swipe-btn fill" tabIndex={open ? 0 : -1}>
+          <Icon name="edit" size={18} />
+          Заполнить
+        </Link>
+        <Link to={`/appt/${a.id}?edit=1`} className="swipe-btn" tabIndex={open ? 0 : -1}>
+          <Icon name="clock" size={18} />
+          Перенести
+        </Link>
+      </div>
+      <div
+        className={`swipe-body${dragging ? " dragging" : ""}`}
+        style={{ transform: `translateX(${x}px)` }}
+        onTouchStart={onStart}
+        onTouchMove={onMove}
+        onTouchEnd={onEnd}
+        onClickCapture={(e) => {
+          // While open, a tap closes the card instead of opening the visit.
+          if (xRef.current !== 0) {
+            e.preventDefault();
+            e.stopPropagation();
+            setX(0);
+          }
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Phone: swipe the day list left or right to move to the next or previous day. */
+function useDaySwipe(onPage: (step: 1 | -1) => void) {
+  const start = useRef<{ x: number; y: number } | null>(null);
+  return {
+    onTouchStart: (e: TouchEvent) => {
+      start.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    },
+    onTouchEnd: (e: TouchEvent) => {
+      const s = start.current;
+      start.current = null;
+      if (!s) return;
+      const dx = e.changedTouches[0].clientX - s.x;
+      const dy = e.changedTouches[0].clientY - s.y;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) onPage(dx < 0 ? 1 : -1);
+    },
+  };
+}
+
 function AgendaCard({ a }: { a: AppointmentRow }) {
   const st = statusOf(a);
   const s = fromLocalStamp(a.starts_at);
@@ -117,6 +214,23 @@ function AgendaCard({ a }: { a: AppointmentRow }) {
   );
 }
 
+/** "Добрый день, Наташа! Впереди 2 собаки, ближайшая в 15:00." */
+function Greeting({ now }: { now: Date }) {
+  const today = appointmentsBetween(toDateKey(now), toDateKey(addDays(now, 1)));
+  const ahead = today.filter((a) => fromLocalStamp(a.starts_at) > now);
+  const summary = ahead.length
+    ? `Впереди ${ahead.length} ${plural(ahead.length, "собака", "собаки", "собак")}, ближайшая в ${hhmm(fromLocalStamp(ahead[0].starts_at))}.`
+    : today.length
+      ? "На сегодня всё — можно отдыхать."
+      : "Сегодня записей нет.";
+  return (
+    <p className="greeting">
+      <b>{greeting(now, greetName())}</b>
+      {summary}
+    </p>
+  );
+}
+
 /** "Сегодня" or "Пт, 30 октября". */
 const dayTitle = (day: Date, now: Date) => (sameDay(day, now) ? "Сегодня" : `${weekdayShort(day)}, ${dayMonth(day)}`);
 
@@ -128,6 +242,28 @@ function DaySummary({ day, appts, now }: { day: Date; appts: AppointmentRow[]; n
   const earned = appts.filter(ended).reduce((s, a) => s + amount(a), 0);
   const total = appts.reduce((s, a) => s + amount(a), 0);
   const joke = earningJoke(earned);
+
+  // Paws fly once each time today reaches a new joke threshold.
+  const level = isToday ? jokeLevel(earned) : -1;
+  useEffect(() => {
+    if (level < 0) return;
+    const key = `fx:joke:${toDateKey(day)}`;
+    let seen = -1;
+    try {
+      seen = Number(localStorage.getItem(key) ?? -1);
+    } catch {
+      // storage unavailable: celebrate anyway
+    }
+    if (level > seen) {
+      celebrate(true);
+      try {
+        localStorage.setItem(key, String(level));
+      } catch {
+        // ignore
+      }
+    }
+  }, [level, day]);
+
   return (
     <section className="card">
       <h2>
@@ -269,6 +405,13 @@ export function CalendarPage() {
   const sidebar = <Sidebar day={day} appts={byDay(day)} now={now} />;
 
   const moveWeek = (n: number) => setDay(addDays(day, 7 * n));
+  // Which way the day list slides in after a swipe or a tap on another day.
+  const [slide, setSlide] = useState<"next" | "prev" | null>(null);
+  const goTo = (d: Date) => {
+    if (!sameDay(d, day)) setSlide(d > day ? "next" : "prev");
+    setDay(d);
+  };
+  const daySwipe = useDaySwipe((step) => goTo(addDays(day, step)));
   const goToday = () => setDay(new Date());
 
   if (!desktop) {
@@ -277,6 +420,7 @@ export function CalendarPage() {
     return (
       <>
         <header className="stack" style={{ gap: 4 }}>
+          <Greeting now={now} />
           <span className="tiny bold muted">
             {weekdayLong(day)}, {dayMonth(day)}
           </span>
@@ -303,7 +447,7 @@ export function CalendarPage() {
               key={d.toISOString()}
               className={`strip-day${sameDay(d, day) ? " on" : ""}`}
               aria-pressed={sameDay(d, day)}
-              onClick={() => setDay(d)}
+              onClick={() => goTo(d)}
             >
               <span className="tiny bold">{weekdayShort(d)}</span>
               <span className="bold">{d.getDate()}</span>
@@ -320,7 +464,7 @@ export function CalendarPage() {
           </button>
         )}
 
-        <div className="stack">
+        <div className={`stack day-list${slide ? ` slide-${slide}` : ""}`} key={toDateKey(day)} {...daySwipe}>
           {list.length === 0 && !agenda.hasFree && (
             <div className="empty">
               Записей нет
@@ -329,7 +473,15 @@ export function CalendarPage() {
               </Link>
             </div>
           )}
-          {agenda.items.map((it) => (it.kind === "appt" ? <AgendaCard key={it.a.id} a={it.a} /> : <FreeSlotLink key={it.at} day={day} slot={it.slot} />))}
+          {agenda.items.map((it) =>
+            it.kind === "appt" ? (
+              <SwipeCard key={it.a.id} a={it.a}>
+                <AgendaCard a={it.a} />
+              </SwipeCard>
+            ) : (
+              <FreeSlotLink key={it.at} day={day} slot={it.slot} />
+            ),
+          )}
         </div>
 
         {sidebar}
@@ -341,6 +493,7 @@ export function CalendarPage() {
     <>
       <header className="page-head">
         <div className="titles">
+          <Greeting now={now} />
           <p className="bold muted">
             {weekdayLong(now)}, {dayMonth(now)}
           </p>

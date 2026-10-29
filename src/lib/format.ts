@@ -1,13 +1,12 @@
 export const PASTELS = ["#FFD6E5", "#CFF3E9", "#FFE9A8", "#E4DDFF", "#D4ECFF"] as const;
 
-/** Jokes for today's earned lari, highest threshold first; only the top one reached shows. */
+/** Default jokes for today's earned lari (editable in settings, see lib/prefs). */
 export const EARNING_JOKES: [number, string][] = [
   [200, "Ого! Ты богач, уже хватает сводить Федусика в ресторани 😏"],
   [100, "Очень хорошо, дышим! Не забудь взять Федусику 150 мл кока-колку 😉"],
   [50, "Молодец! Но надо ещё! Всего 5 коф можно купить пока что, полунищий вайбик 😐"],
 ];
 
-export const earningJoke = (earned: number) => EARNING_JOKES.find(([min]) => earned >= min)?.[1] ?? null;
 
 export const newId = () => crypto.randomUUID();
 export const nowIso = () => new Date().toISOString();

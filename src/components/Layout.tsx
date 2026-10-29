@@ -1,4 +1,7 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { useEffect } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { useDbVersion } from "../db/db";
+import { fxOn } from "../lib/prefs";
 import { Icon, type IconName } from "./Icon";
 import { useSyncState } from "../sync/sync";
 import { DialogHost } from "./DialogHost";
@@ -31,6 +34,14 @@ export function SyncLabel() {
 }
 
 export function Layout() {
+  useDbVersion();
+  const animate = fxOn();
+  useEffect(() => {
+    document.documentElement.classList.toggle("no-fx", !animate);
+  }, [animate]);
+  // Keyed by section so moving between sections fades in, while /dogs/a → /dogs/b keeps the list.
+  const section = useLocation().pathname.split("/")[1];
+
   return (
     <div className="app">
       <nav className="sidebar" aria-label="Разделы">
@@ -62,7 +73,7 @@ export function Layout() {
         <SyncLabel />
       </nav>
 
-      <main className="main">
+      <main className="main page-in" key={section}>
         <Outlet />
       </main>
 

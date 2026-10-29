@@ -4,7 +4,7 @@ import { useDbVersion } from "../db/db";
 import { listProducts, productUsesBetween, statVisits, type StatVisit } from "../db/repo";
 import { addDays, addMinutes, fromLocalStamp, startOfDay, startOfWeek, toDateKey } from "../lib/dates";
 import { initial, money, pastelFor, plural } from "../lib/format";
-import { useNow } from "../components/common";
+import { CountUp, useNow } from "../components/common";
 import { Icon } from "../components/Icon";
 
 type Period = "week" | "month" | "year";
@@ -218,7 +218,9 @@ export function StatsPage() {
         <section className="card st-hero">
           <span className="small bold muted">Заработано{proc ? ` · ${procNames.get(proc) ?? ""}` : ""}</span>
           <div className="row" style={{ alignItems: "baseline", gap: 12 }}>
-            <span className="st-big">{money(earned)}</span>
+            <span className="st-big">
+              <CountUp value={earned} format={(n) => money(Math.round(n))} />
+            </span>
             {delta !== null && (
               <span className={`st-delta${delta < 0 ? " down" : ""}`}>
                 {delta > 0 ? "+" : delta < 0 ? "−" : ""}
@@ -235,14 +237,18 @@ export function StatsPage() {
         </section>
         <section className="card st-tile">
           <span className="small bold muted">Визитов</span>
-          <span className="st-mid">{done.length}</span>
+          <span className="st-mid">
+            <CountUp value={done.length} />
+          </span>
           <span className="tiny bold muted">
             {dogs.size} {plural(dogs.size, "собака", "собаки", "собак")}
           </span>
         </section>
         <section className="card st-tile">
           <span className="small bold muted">Средний чек</span>
-          <span className="st-mid">{money(done.length ? earned / done.length : 0)}</span>
+          <span className="st-mid">
+            <CountUp value={done.length ? earned / done.length : 0} format={(n) => money(Math.round(n))} />
+          </span>
           <span className="tiny bold muted">за один визит</span>
         </section>
       </div>
@@ -379,7 +385,9 @@ export function StatsPage() {
             <Icon name="heart" size={26} />
           </span>
           <span className="stack" style={{ gap: 2 }}>
-            <span className="st-mid">+{money(over)}</span>
+            <span className="st-mid">
+              +<CountUp value={over} format={(n) => money(Math.round(n))} />
+            </span>
             <span className="small bold muted">оплатили сверх прайса — чаевые и доплаты</span>
           </span>
         </section>
@@ -388,7 +396,9 @@ export function StatsPage() {
             <Icon name="coffee" size={26} />
           </span>
           <span className="stack" style={{ gap: 2 }}>
-            <span className="st-mid">{Math.floor(earned / 10)} коф</span>
+            <span className="st-mid">
+              <CountUp value={Math.floor(earned / 10)} /> коф
+            </span>
             <span className="small bold muted">столько кофе можно купить на заработанное, по 10 ₾ за штуку</span>
           </span>
         </section>
