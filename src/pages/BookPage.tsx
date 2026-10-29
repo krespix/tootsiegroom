@@ -8,6 +8,7 @@ import {
   listBreeds,
   listDogs,
   listOwners,
+  ownerSearchText,
   type OwnerInput,
   listProcedures,
   saveDog,
@@ -59,7 +60,7 @@ export function BookPage() {
   const q = dogQuery.trim().toLowerCase();
   const ownerMap = dogOwnersMap();
   const shownDogs = dogs.filter(
-    (d) => !q || [d.name, d.breed, ...(ownerMap.get(d.id) ?? []).flatMap((o) => [o.name, o.phone])].join(" ").toLowerCase().includes(q),
+    (d) => !q || [d.name, d.breed, ...(ownerMap.get(d.id) ?? []).map(ownerSearchText)].join(" ").toLowerCase().includes(q),
   );
 
   const save = () => {
@@ -146,7 +147,7 @@ export function BookPage() {
                 />
                 <div style={{ gridColumn: "1 / -1" }}>
                   <span className="bold">Хозяин</span>
-                  <OwnerFields owner={ndOwner} onChange={setNdOwner} known={listOwners()} taken={new Set()} compact />
+                  <OwnerFields owner={ndOwner} onChange={setNdOwner} known={listOwners()} taken={new Set()} />
                 </div>
                 <p className="small muted bold" style={{ gridColumn: "1 / -1" }}>
                   Фото, день рождения, особенности и других хозяев — потом в карточке собаки.

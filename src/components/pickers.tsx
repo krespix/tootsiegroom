@@ -1,5 +1,6 @@
 import { useId, useState, type ReactNode } from "react";
-import type { Owner, OwnerInput } from "../db/repo";
+import type { Contact, Owner, OwnerInput } from "../db/repo";
+import { CONTACT_KINDS, contactLabel, kindMeta } from "../lib/contacts";
 import { Icon } from "./Icon";
 
 export type Option = { key: string; label: string; hint?: string };
@@ -148,29 +149,96 @@ type KnownOwner = Owner & { dogs: string };
 function ownerOptions(known: KnownOwner[], taken: Set<string>): Option[] {
   return known
     .filter((o) => !taken.has(o.id))
-    .map((o) => ({ key: o.id, label: o.name || o.phone, hint: [o.phone, o.dogs && `собаки: ${o.dogs}`].filter(Boolean).join(" · ") }));
+    .map((o) => ({
+      key: o.id,
+      label: o.name || (o.contacts[0] ? contactLabel(o.contacts[0]) : "Без имени"),
+      hint: [...o.contacts.map(contactLabel), o.dogs && `собаки: ${o.dogs}`].filter(Boolean).join(" · "),
+    }));
 }
 
-export const emptyOwner = (): OwnerInput => ({ name: "", phone: "", telegram: "" });
+export const emptyOwner = (): OwnerInput => ({ name: "", contacts: [] });
 
-/** One owner's fields; name and phone suggest people already in the book. */
+/** Contacts start empty; "+ Контакт" asks for a type, then adds a field for it. */
+function ContactsEditor({ value, onChange }: { value: Contact[]; onChange: (v: Contact[]) => void }) {
+  const [choosing, setChoosing] = useState(false);
+  const set = (i: number, c: Contact) => onChange(value.map((x, j) => (j === i ? c : x)));
+  return (
+    <div className="stack" style={{ gap: 8 }}>
+      {value.map((c, i) => {
+        const meta = kindMeta(c.kind);
+        return (
+          <div key={i} className="row" style={{ flexWrap: "nowrap", gap: 8 }}>
+            <span className="avatar" style={{ width: 40, height: 40, background: "var(--bg)", borderRadius: 12 }} title={meta.label}>
+              <Icon name={meta.icon} size={18} />
+            </span>
+            <input
+              className="input"
+              aria-label={meta.label}
+              type={c.kind === "phone" ? "tel" : "text"}
+              inputMode={meta.inputMode}
+              autoCapitalize="off"
+              autoCorrect="off"
+              placeholder={meta.placeholder}
+              value={c.value}
+              autoFocus={!c.value}
+              onChange={(e) => set(i, { ...c, value: e.target.value })}
+            />
+            <button
+              type="button"
+              className="btn icon danger"
+              style={{ flex: "none" }}
+              aria-label={`Удалить ${meta.label}`}
+              onClick={() => onChange(value.filter((_, j) => j !== i))}
+            >
+              <Icon name="x" size={16} />
+            </button>
+          </div>
+        );
+      })}
+      {choosing ? (
+        <div className="row" style={{ gap: 8 }} role="group" aria-label="Тип контакта">
+          {CONTACT_KINDS.map((k) => (
+            <button
+              key={k.kind}
+              type="button"
+              className="chip"
+              style={{ minHeight: 44 }}
+              onClick={() => {
+                onChange([...value, { kind: k.kind, value: "" }]);
+                setChoosing(false);
+              }}
+            >
+              <Icon name={k.icon} size={16} /> {k.label}
+            </button>
+          ))}
+          <button type="button" className="btn link small" onClick={() => setChoosing(false)}>
+            Отмена
+          </button>
+        </div>
+      ) : (
+        <button type="button" className="btn dashed" style={{ alignSelf: "flex-start" }} onClick={() => setChoosing(true)}>
+          + Контакт
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** One owner: name (suggests people already in the book, by name or contact) and contacts. */
 export function OwnerFields({
   owner,
   onChange,
   known,
   taken,
-  compact = false,
 }: {
   owner: OwnerInput;
   onChange: (o: OwnerInput) => void;
   known: KnownOwner[];
   taken: Set<string>;
-  compact?: boolean;
 }) {
-  const options = ownerOptions(known, taken);
   const pick = (o: Option) => {
     const k = known.find((x) => x.id === o.key);
-    if (k) onChange({ id: k.id, name: k.name, phone: k.phone, telegram: k.telegram });
+    if (k) onChange({ id: k.id, name: k.name, contacts: k.contacts });
   };
   const linked = owner.id ? known.find((k) => k.id === owner.id) : undefined;
   return (
@@ -180,24 +248,10 @@ export function OwnerFields({
         value={owner.name}
         onChange={(name) => onChange({ ...owner, name })}
         onPick={pick}
-        options={options}
+        options={ownerOptions(known, taken)}
         placeholder="Начни вводить — подскажу знакомых"
       />
-      <Suggest
-        label="Телефон"
-        type="tel"
-        inputMode="tel"
-        value={owner.phone}
-        onChange={(phone) => onChange({ ...owner, phone })}
-        onPick={pick}
-        options={options}
-      />
-      {!compact && (
-        <label className="field">
-          Telegram
-          <input className="input" value={owner.telegram} placeholder="@username" onChange={(e) => onChange({ ...owner, telegram: e.target.value })} />
-        </label>
-      )}
+      <ContactsEditor value={owner.contacts} onChange={(contacts) => onChange({ ...owner, contacts })} />
       {linked && (
         <p className="tiny bold muted">
           Уже есть в базе{linked.dogs ? ` (собаки: ${linked.dogs})` : ""}. Изменения применятся ко всем его собакам.{" "}

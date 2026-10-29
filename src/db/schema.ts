@@ -153,4 +153,20 @@ export const MIGRATIONS: Migration[] = [
       d.run("INSERT OR IGNORE INTO dog_owners (dog_id, owner_id, sort) VALUES (?, ?, 0)", [dogId, id]);
     }
   },
+
+  // v3: an owner has any number of typed contacts instead of fixed
+  // phone/telegram columns (which stay, unread).
+  `
+  CREATE TABLE owner_contacts (
+    id TEXT PRIMARY KEY,
+    owner_id TEXT NOT NULL REFERENCES owners(id),
+    kind TEXT NOT NULL,
+    value TEXT NOT NULL,
+    sort INTEGER NOT NULL DEFAULT 0
+  );
+  INSERT INTO owner_contacts (id, owner_id, kind, value, sort)
+    SELECT lower(hex(randomblob(16))), id, 'phone', TRIM(phone), 0 FROM owners WHERE TRIM(phone) != '';
+  INSERT INTO owner_contacts (id, owner_id, kind, value, sort)
+    SELECT lower(hex(randomblob(16))), id, 'telegram', TRIM(telegram), 1 FROM owners WHERE TRIM(telegram) != '';
+  `,
 ];

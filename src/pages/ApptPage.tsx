@@ -20,6 +20,7 @@ import { money } from "../lib/format";
 import { askConfirm } from "../lib/dialog";
 import { Avatar, PhotoSlot, useToast } from "../components/common";
 import { Icon } from "../components/Icon";
+import { ContactLink } from "../components/OwnerRow";
 
 export function ApptPage() {
   useDbVersion();
@@ -266,12 +267,16 @@ function ApptView({ id }: { id: string }) {
               </span>
             </Link>
             {owners
-              .filter((o) => o.phone)
+              .filter((o) => o.contacts.length)
               .map((o) => (
-                <a key={o.id} href={`tel:${o.phone}`} className="btn">
-                  <Icon name="phone" size={16} /> {owners.length > 1 && o.name ? `${o.name}: ` : ""}
-                  {o.phone}
-                </a>
+                <div key={o.id} className="stack" style={{ gap: 6 }}>
+                  {owners.length > 1 && o.name && <span className="small bold muted">{o.name}</span>}
+                  <div className="row" style={{ gap: 6 }}>
+                    {o.contacts.map((c, i) => (
+                      <ContactLink key={i} contact={c} />
+                    ))}
+                  </div>
+                </div>
               ))}
             {(dog.notes || tags.length > 0) && (
               <div className="stack" style={{ padding: 12, borderRadius: 14, background: "var(--butter)", gap: 8 }}>

@@ -9,13 +9,14 @@ import {
   getDog,
   lastVisits,
   listDogs,
+  ownerSearchText,
   ownersOf,
   saveDog,
   tagsOf,
   usedProducts,
   type Dog,
-  type Owner,
 } from "../db/repo";
+import { OwnerRow } from "../components/OwnerRow";
 import { ageLabel, dayMonth, fromLocalStamp, hhmm, weeksAgo } from "../lib/dates";
 import { money, plural } from "../lib/format";
 import { Avatar, PhotoSlot, SearchBox, Thumb, useDesktop } from "../components/common";
@@ -38,7 +39,7 @@ function DogList({ selected }: { selected?: string }) {
   };
   const q = query.trim().toLowerCase();
   const haystack = (d: Dog) =>
-    [d.name, d.breed, ...(ownerMap.get(d.id) ?? []).flatMap((o) => [o.name, o.phone]), ...(tagMap.get(d.id) ?? []).map((t) => t.name)]
+    [d.name, d.breed, ...(ownerMap.get(d.id) ?? []).map(ownerSearchText), ...(tagMap.get(d.id) ?? []).map((t) => t.name)]
       .join(" ")
       .toLowerCase();
   const shown = dogs
@@ -95,28 +96,6 @@ function DogList({ selected }: { selected?: string }) {
         ))}
       </div>
     </section>
-  );
-}
-
-export function OwnerRow({ owner, label = "Хозяин" }: { owner: Owner; label?: string }) {
-  const tg = owner.telegram.replace(/^@/, "");
-  return (
-    <div className="row" style={{ padding: "12px 14px", borderRadius: 16, background: "var(--bg)" }}>
-      <div className="stack" style={{ gap: 0, flex: "1 1 160px" }}>
-        <span className="small bold muted">{label}</span>
-        <span className="bold">{[owner.name, owner.phone].filter(Boolean).join(" · ")}</span>
-      </div>
-      {owner.phone && (
-        <a href={`tel:${owner.phone}`} className="btn">
-          <Icon name="phone" size={16} /> Позвонить
-        </a>
-      )}
-      {tg && (
-        <a href={`https://t.me/${tg}`} target="_blank" rel="noreferrer" className="btn">
-          <Icon name="send" size={16} /> Telegram
-        </a>
-      )}
-    </div>
   );
 }
 

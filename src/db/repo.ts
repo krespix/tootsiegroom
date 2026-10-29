@@ -16,8 +16,10 @@ export type Dog = {
 };
 
 export type Tag = { id: string; name: string };
-export type Owner = { id: string; name: string; phone: string; telegram: string };
-export type OwnerInput = { id?: string; name: string; phone: string; telegram: string };
+export type ContactKind = "phone" | "telegram" | "instagram";
+export type Contact = { kind: ContactKind; value: string };
+export type Owner = { id: string; name: string; contacts: Contact[] };
+export type OwnerInput = { id?: string; name: string; contacts: Contact[] };
 
 export type Brand = { id: string; name: string; color: string; sort: number };
 
@@ -108,15 +110,20 @@ function linkTags(dogId: string, names: string[]) {
 function linkOwners(dogId: string, owners: OwnerInput[]) {
   run("DELETE FROM dog_owners WHERE dog_id = ?", [dogId]);
   owners
-    .filter((o) => o.name.trim() || o.phone.trim() || o.telegram.trim())
+    .map((o) => ({ ...o, name: o.name.trim(), contacts: o.contacts.map((c) => ({ ...c, value: c.value.trim() })).filter((c) => c.value) }))
+    .filter((o) => o.name || o.contacts.length)
     .forEach((o, i) => {
       let id = o.id;
       if (id) {
-        run("UPDATE owners SET name = ?, phone = ?, telegram = ? WHERE id = ?", [o.name.trim(), o.phone.trim(), o.telegram.trim(), id]);
+        run("UPDATE owners SET name = ? WHERE id = ?", [o.name, id]);
+        run("DELETE FROM owner_contacts WHERE owner_id = ?", [id]);
       } else {
         id = newId();
-        run("INSERT INTO owners (id, name, phone, telegram, created_at) VALUES (?, ?, ?, ?, ?)", [id, o.name.trim(), o.phone.trim(), o.telegram.trim(), nowIso()]);
+        run("INSERT INTO owners (id, name, created_at) VALUES (?, ?, ?)", [id, o.name, nowIso()]);
       }
+      o.contacts.forEach((c, j) =>
+        run("INSERT INTO owner_contacts (id, owner_id, kind, value, sort) VALUES (?, ?, ?, ?, ?)", [newId(), id!, c.kind, c.value, j]),
+      );
       run("INSERT OR IGNORE INTO dog_owners (dog_id, owner_id, sort) VALUES (?, ?, ?)", [dogId, id, i]);
     });
 }
@@ -124,7 +131,15 @@ function linkOwners(dogId: string, owners: OwnerInput[]) {
 /** Tags and owners live only while some dog uses them — the dictionaries follow the dogs. */
 function pruneDictionaries() {
   run("DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM dog_tags)");
+  run("DELETE FROM owner_contacts WHERE owner_id NOT IN (SELECT owner_id FROM dog_owners)");
   run("DELETE FROM owners WHERE id NOT IN (SELECT owner_id FROM dog_owners)");
+}
+
+function contactsByOwner(): Map<string, Contact[]> {
+  const rows = all<Contact & { owner_id: string }>("SELECT owner_id, kind, value FROM owner_contacts ORDER BY sort");
+  const m = new Map<string, Contact[]>();
+  for (const { owner_id, kind, value } of rows) m.set(owner_id, [...(m.get(owner_id) ?? []), { kind, value }]);
+  return m;
 }
 
 /** Saves the dog; `tags` / `owners`, when given, replace the dog's current ones. */
@@ -200,11 +215,14 @@ export function listTags(): Tag[] {
 }
 
 export function listOwners(): (Owner & { dogs: string })[] {
-  return all<Owner & { dogs: string }>(
-    `SELECT o.*, GROUP_CONCAT(d.name, ', ') AS dogs FROM owners o
+  const contacts = contactsByOwner();
+  return all<{ id: string; name: string; dogs: string }>(
+    `SELECT o.id, o.name, GROUP_CONCAT(d.name, ', ') AS dogs FROM owners o
      JOIN dog_owners x ON x.owner_id = o.id JOIN dogs d ON d.id = x.dog_id
      GROUP BY o.id`,
-  ).sort((a, b) => a.name.localeCompare(b.name, "ru"));
+  )
+    .map((o) => ({ ...o, contacts: contacts.get(o.id) ?? [] }))
+    .sort((a, b) => a.name.localeCompare(b.name, "ru"));
 }
 
 export function dogTagsMap(): Map<string, Tag[]> {
@@ -215,13 +233,17 @@ export function dogTagsMap(): Map<string, Tag[]> {
 }
 
 export function dogOwnersMap(): Map<string, Owner[]> {
-  const rows = all<Owner & { dog_id: string }>(
-    "SELECT x.dog_id, o.id, o.name, o.phone, o.telegram FROM dog_owners x JOIN owners o ON o.id = x.owner_id ORDER BY x.sort",
+  const contacts = contactsByOwner();
+  const rows = all<{ dog_id: string; id: string; name: string }>(
+    "SELECT x.dog_id, o.id, o.name FROM dog_owners x JOIN owners o ON o.id = x.owner_id ORDER BY x.sort",
   );
   const m = new Map<string, Owner[]>();
-  for (const { dog_id, ...o } of rows) m.set(dog_id, [...(m.get(dog_id) ?? []), o]);
+  for (const { dog_id, ...o } of rows) m.set(dog_id, [...(m.get(dog_id) ?? []), { ...o, contacts: contacts.get(o.id) ?? [] }]);
   return m;
 }
+
+/** Text of all an owner's contacts, for search. */
+export const ownerSearchText = (o: Owner) => [o.name, ...o.contacts.map((c) => c.value)].join(" ");
 
 export const tagsOf = (dogId: string) => dogTagsMap().get(dogId) ?? [];
 export const ownersOf = (dogId: string) => dogOwnersMap().get(dogId) ?? [];
