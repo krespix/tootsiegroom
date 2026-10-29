@@ -249,19 +249,21 @@ export const tagsOf = (dogId: string) => dogTagsMap().get(dogId) ?? [];
 export const ownersOf = (dogId: string) => dogOwnersMap().get(dogId) ?? [];
 
 /** Last non-cancelled visit that already happened, per dog. */
-export function lastVisits(): Map<string, string> {
+/** Each dog's latest visit that started by `at` (default: now). */
+export function lastVisits(at = new Date()): Map<string, string> {
   const rows = all<{ dog_id: string; last: string }>(
     `SELECT dog_id, MAX(starts_at) AS last FROM appointments
      WHERE status != 'cancelled' AND starts_at <= ? GROUP BY dog_id`,
-    [toLocalStamp(new Date())],
+    [toLocalStamp(at)],
   );
   return new Map(rows.map((r) => [r.dog_id, r.last]));
 }
 
-export function dogsWithUpcoming(): Set<string> {
+/** Dogs booked after `at` (default: now). */
+export function dogsWithUpcoming(at = new Date()): Set<string> {
   const rows = all<{ dog_id: string }>(
     "SELECT DISTINCT dog_id FROM appointments WHERE status != 'cancelled' AND starts_at > ?",
-    [toLocalStamp(new Date())],
+    [toLocalStamp(at)],
   );
   return new Set(rows.map((r) => r.dog_id));
 }

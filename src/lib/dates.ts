@@ -83,18 +83,18 @@ export function ageLabel(birthday: string | null) {
   return `${months} мес`;
 }
 
-/** Days until the next birthday (0 = today), or null without a birthday. */
-export function daysToBirthday(birthday: string | null) {
+/** Days from `from` (default: today) until the next birthday (0 = that day), or null without a birthday. */
+export function daysToBirthday(birthday: string | null, from = new Date()) {
   if (!birthday) return null;
   const b = fromLocalStamp(birthday);
-  const today = startOfDay(new Date());
+  const today = startOfDay(from);
   let next = new Date(today.getFullYear(), b.getMonth(), b.getDate());
   if (next < today) next = new Date(today.getFullYear() + 1, b.getMonth(), b.getDate());
   return Math.round((next.getTime() - today.getTime()) / 86_400_000);
 }
 
-export function weeksAgo(stamp: string) {
-  const days = Math.floor((Date.now() - fromLocalStamp(stamp).getTime()) / 86_400_000);
+export function weeksAgo(stamp: string, from = new Date()) {
+  const days = Math.floor((from.getTime() - fromLocalStamp(stamp).getTime()) / 86_400_000);
   if (days < 7) return days <= 0 ? "сегодня" : `${days} дн назад`;
   const w = Math.floor(days / 7);
   return `${w} нед назад`;

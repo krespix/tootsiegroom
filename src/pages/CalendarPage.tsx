@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useDbVersion } from "../db/db";
 import { appointmentsBetween, dogsWithUpcoming, lastVisits, listDogs, unfilledAppointments, type AppointmentRow } from "../db/repo";
 import {
@@ -75,19 +74,24 @@ function AgendaCard({ a }: { a: AppointmentRow }) {
   );
 }
 
-function TodaySummary({ today, now }: { today: AppointmentRow[]; now: Date }) {
+/** "Сегодня" or "Пт, 30 октября". */
+const dayTitle = (day: Date, now: Date) => (sameDay(day, now) ? "Сегодня" : `${weekdayShort(day)}, ${dayMonth(day)}`);
+
+function DaySummary({ day, appts, now }: { day: Date; appts: AppointmentRow[]; now: Date }) {
+  const isToday = sameDay(day, now);
+  const future = day > now;
   // A visit counts as earned once it has ended.
   const ended = (a: AppointmentRow) => addMinutes(fromLocalStamp(a.starts_at), a.minutes) <= now;
-  const earned = today.filter(ended).reduce((s, a) => s + amount(a), 0);
-  const total = today.reduce((s, a) => s + amount(a), 0);
+  const earned = appts.filter(ended).reduce((s, a) => s + amount(a), 0);
+  const total = appts.reduce((s, a) => s + amount(a), 0);
   const joke = earningJoke(earned);
   return (
     <section className="card">
       <h2>
-        Сегодня · {today.length} {plural(today.length, "собака", "собаки", "собак")}
+        {dayTitle(day, now)} · {appts.length} {plural(appts.length, "собака", "собаки", "собак")}
       </h2>
-      {today.length === 0 && <p className="muted bold small">Записей нет — можно выдохнуть</p>}
-      {today.map((a) => (
+      {appts.length === 0 && <p className="muted bold small">{isToday ? "Записей нет — можно выдохнуть" : "Записей нет"}</p>}
+      {appts.map((a) => (
         <Link key={a.id} to={`/appt/${a.id}`} className="row" style={{ flexWrap: "nowrap", textDecoration: "none" }}>
           <Avatar id={a.dog_id} name={a.dog_name} photo={a.dog_photo} />
           <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
@@ -100,13 +104,20 @@ function TodaySummary({ today, now }: { today: AppointmentRow[]; now: Date }) {
           </span>
         </Link>
       ))}
-      {today.length > 0 && (
+      {appts.length > 0 && (
         <div className="stack" style={{ gap: 6, paddingTop: 12, borderTop: "1px solid var(--line-soft)" }}>
-          <div className="row bold" style={{ justifyContent: "space-between" }}>
-            <span>{earned === total ? "Заработала сегодня" : "Уже заработала"}</span>
-            <span>{money(earned)}</span>
-          </div>
-          {earned !== total && (
+          {future ? (
+            <div className="row bold" style={{ justifyContent: "space-between" }}>
+              <span>Ожидается</span>
+              <span>{money(total)}</span>
+            </div>
+          ) : (
+            <div className="row bold" style={{ justifyContent: "space-between" }}>
+              <span>{earned !== total ? "Уже заработала" : isToday ? "Заработала сегодня" : "Заработала"}</span>
+              <span>{money(earned)}</span>
+            </div>
+          )}
+          {!future && earned !== total && (
             <div className="row bold muted" style={{ justifyContent: "space-between" }}>
               <span>К концу дня</span>
               <span>{money(total)}</span>
@@ -124,25 +135,30 @@ function TodaySummary({ today, now }: { today: AppointmentRow[]; now: Date }) {
   );
 }
 
-function Sidebar({ today, now }: { today: AppointmentRow[]; now: Date }) {
+function Sidebar({ day, appts, now }: { day: Date; appts: AppointmentRow[]; now: Date }) {
+  const isToday = sameDay(day, now);
+  // The moment the side blocks look from: now for today, otherwise the end of the picked day.
+  const asOf = isToday ? now : addMinutes(addDays(day, 1), -1);
+
+  // Unfilled visits are a to-do list, so they ignore the picked day.
   const unfilled = unfilledAppointments().slice(0, 6);
   const dogs = listDogs();
   const birthdays = dogs
-    .map((d) => ({ d, days: daysToBirthday(d.birthday) }))
+    .map((d) => ({ d, days: daysToBirthday(d.birthday, day) }))
     .filter((x): x is { d: (typeof dogs)[number]; days: number } => x.days !== null && x.days <= 14)
     .sort((a, b) => a.days - b.days);
-  const last = lastVisits();
-  const upcoming = dogsWithUpcoming();
+  const last = lastVisits(asOf);
+  const upcoming = dogsWithUpcoming(asOf);
   const longAgo = dogs
     .filter((d) => {
       const l = last.get(d.id);
-      return l && !upcoming.has(d.id) && Date.now() - fromLocalStamp(l).getTime() > 8 * 7 * 86_400_000;
+      return l && !upcoming.has(d.id) && asOf.getTime() - fromLocalStamp(l).getTime() > 8 * 7 * 86_400_000;
     })
     .slice(0, 5);
 
   return (
     <>
-      <TodaySummary today={today} now={now} />
+      <DaySummary day={day} appts={appts} now={now} />
 
       {unfilled.length > 0 && (
         <section className="card">
@@ -151,7 +167,7 @@ function Sidebar({ today, now }: { today: AppointmentRow[]; now: Date }) {
           {unfilled.map((a) => (
             <Link key={a.id} to={`/appt/${a.id}`} className="list-link" style={{ background: a.color }}>
               <span>
-                {a.dog_name} · {sameDay(fromLocalStamp(a.starts_at), new Date()) ? "сегодня" : dayMonth(fromLocalStamp(a.starts_at))}
+                {a.dog_name} · {sameDay(fromLocalStamp(a.starts_at), now) ? "сегодня" : dayMonth(fromLocalStamp(a.starts_at))}
               </span>
               <Icon name="right" size={18} />
             </Link>
@@ -167,7 +183,7 @@ function Sidebar({ today, now }: { today: AppointmentRow[]; now: Date }) {
               <h2>Скоро день рождения</h2>
               {birthdays.map(({ d, days }) => (
                 <Link key={d.id} to={`/dogs/${d.id}`} className="bold" style={{ textDecoration: "none" }}>
-                  {d.name} — {days === 0 ? "сегодня!" : dayMonth(addDays(startOfDay(new Date()), days))}
+                  {d.name} — {days === 0 ? (isToday ? "сегодня!" : "в этот день!") : dayMonth(addDays(day, days))}
                 </Link>
               ))}
             </div>
@@ -181,7 +197,7 @@ function Sidebar({ today, now }: { today: AppointmentRow[]; now: Date }) {
           {longAgo.map((d) => (
             <Link key={d.id} to={`/dogs/${d.id}`} className="row bold" style={{ justifyContent: "space-between", textDecoration: "none" }}>
               <span>{d.name}</span>
-              <span className="muted">{weeksAgo(last.get(d.id)!)}</span>
+              <span className="muted">{weeksAgo(last.get(d.id)!, asOf)}</span>
             </Link>
           ))}
         </section>
@@ -193,24 +209,21 @@ function Sidebar({ today, now }: { today: AppointmentRow[]; now: Date }) {
 export function CalendarPage() {
   useDbVersion();
   const desktop = useDesktop();
-  const [week, setWeek] = useState(() => startOfWeek(new Date()));
-  const [day, setDay] = useState(() => startOfDay(new Date()));
   const now = useNow();
+  // The picked day lives in the URL so it survives opening a visit and coming back.
+  const [params, setParams] = useSearchParams();
+  const picked = params.get("day");
+  const day = picked ? fromLocalStamp(picked) : startOfDay(now);
+  const week = startOfWeek(day);
+  const setDay = (d: Date) => setParams(sameDay(d, new Date()) ? {} : { day: toDateKey(d) }, { replace: true });
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(week, i));
   const appts = appointmentsBetween(toDateKey(week), toDateKey(addDays(week, 7)));
   const byDay = (d: Date) => appts.filter((a) => a.starts_at.startsWith(toDateKey(d)));
-  const today = appointmentsBetween(toDateKey(now), toDateKey(addDays(now, 1)));
+  const sidebar = <Sidebar day={day} appts={byDay(day)} now={now} />;
 
-  const moveWeek = (n: number) => {
-    const next = addDays(week, 7 * n);
-    setWeek(next);
-    setDay(next);
-  };
-  const goToday = () => {
-    setWeek(startOfWeek(new Date()));
-    setDay(startOfDay(new Date()));
-  };
+  const moveWeek = (n: number) => setDay(addDays(day, 7 * n));
+  const goToday = () => setDay(new Date());
 
   if (!desktop) {
     const list = byDay(day);
@@ -269,7 +282,7 @@ export function CalendarPage() {
           ))}
         </div>
 
-        <Sidebar today={today} now={now} />
+        {sidebar}
       </>
     );
   }
@@ -301,12 +314,13 @@ export function CalendarPage() {
           <div className="week-grid">
             {days.map((d) => {
               const isToday = sameDay(d, now);
+              const on = sameDay(d, day);
               return (
-                <div key={d.toISOString()} className={`day-col${isToday ? " today" : ""}`}>
-                  <div className="day-head">
+                <div key={d.toISOString()} className={`day-col${isToday ? " today" : ""}${on ? " selected" : ""}`}>
+                  <button type="button" className="day-head" aria-pressed={on} aria-label={`${weekdayLong(d)}, ${dayMonth(d)}`} onClick={() => setDay(d)}>
                     <span className="small bold muted">{weekdayShort(d)}</span>
                     <span className={`day-num${isToday ? " today" : ""}`}>{d.getDate()}</span>
-                  </div>
+                  </button>
                   {byDay(d).map((a) => (
                     <WeekCard key={a.id} a={a} />
                   ))}
@@ -319,7 +333,7 @@ export function CalendarPage() {
           </div>
         </section>
         <aside className="side" aria-label="Сводка">
-          <Sidebar today={today} now={now} />
+          {sidebar}
         </aside>
       </div>
     </>
