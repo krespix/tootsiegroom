@@ -383,16 +383,15 @@ function StorageCard() {
 
 function BadgeCard() {
   useDbVersion();
+  if (isAndroid()) return null; // Android launchers ignore web app badges
   const [permission, setPermission] = useState(() => ("Notification" in window ? Notification.permission : "unsupported"));
   if (!badgeSupported())
     return (
-      <Card id="badge" title="Цифра на иконке" hint={isAndroid() ? "на Android недоступна" : "недоступно здесь"}>
+      <Card id="badge" title="Цифра на иконке" hint="недоступно здесь">
         <p className="small muted bold">
-          {isAndroid()
-            ? "На Android приложения из браузера не могут сами ставить цифру на иконку — система показывает значок только при непрочитанных уведомлениях. На iPhone цифра работает."
-            : installed()
-              ? "Этот телефон или браузер не умеет показывать цифру на иконке."
-              : "Цифра на иконке работает, когда приложение добавлено на экран «Домой». Открой его оттуда и вернись сюда."}
+          {installed()
+            ? "Этот телефон или браузер не умеет показывать цифру на иконке."
+            : "Цифра на иконке работает, когда приложение добавлено на экран «Домой». Открой его оттуда и вернись сюда."}
         </p>
       </Card>
     );
