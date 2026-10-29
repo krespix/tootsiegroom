@@ -6,7 +6,7 @@ import { DEFAULT_JOKES, fxOn, greetName, greeting, jokes, jokesOn, type Joke } f
 import { toDateKey } from "../lib/dates";
 import { bytesLabel, plural } from "../lib/format";
 import { localPhotoUsage } from "../lib/photos";
-import { badgeOn, badgeSupported, updateBadge } from "../lib/badge";
+import { badgeOn, badgeSupported, isAndroid, updateBadge } from "../lib/badge";
 import { installed } from "../lib/session";
 import { CHANGES } from "../lib/changelog";
 import { askConfirm } from "../lib/dialog";
@@ -386,11 +386,13 @@ function BadgeCard() {
   const [permission, setPermission] = useState(() => ("Notification" in window ? Notification.permission : "unsupported"));
   if (!badgeSupported())
     return (
-      <Card id="badge" title="Цифра на иконке" hint="недоступно здесь">
+      <Card id="badge" title="Цифра на иконке" hint={isAndroid() ? "на Android недоступна" : "недоступно здесь"}>
         <p className="small muted bold">
-          {installed()
-            ? "Этот телефон или браузер не умеет показывать цифру на иконке."
-            : "Цифра на иконке работает, когда приложение добавлено на экран «Домой». Открой его оттуда и вернись сюда."}
+          {isAndroid()
+            ? "На Android приложения из браузера не могут сами ставить цифру на иконку — система показывает значок только при непрочитанных уведомлениях. На iPhone цифра работает."
+            : installed()
+              ? "Этот телефон или браузер не умеет показывать цифру на иконке."
+              : "Цифра на иконке работает, когда приложение добавлено на экран «Домой». Открой его оттуда и вернись сюда."}
         </p>
       </Card>
     );

@@ -2,7 +2,9 @@ import { getSetting, unfilledAppointments } from "../db/repo";
 
 type BadgeNavigator = Navigator & { setAppBadge?: (n?: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
 
-export const badgeSupported = () => "setAppBadge" in navigator;
+/** Chrome on Android exposes setAppBadge but launchers ignore it: there a badge only follows unread notifications. */
+export const isAndroid = () => /Android/i.test(navigator.userAgent);
+export const badgeSupported = () => "setAppBadge" in navigator && !isAndroid();
 export const badgeOn = () => getSetting("badge_off") !== "1";
 
 /** The home-screen icon shows how many past visits still need filling in. */
