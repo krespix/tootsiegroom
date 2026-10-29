@@ -174,4 +174,9 @@ export const MIGRATIONS: Migration[] = [
   `
   CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
   `,
+
+  // v5: when the owner was last reminded about a booking.
+  `
+  ALTER TABLE appointments ADD COLUMN reminded_at TEXT;
+  `,
 ];

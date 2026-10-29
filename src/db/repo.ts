@@ -66,6 +66,7 @@ export type Appointment = {
   photo_before: string | null;
   photo_after: string | null;
   filled_at: string | null;
+  reminded_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -269,6 +270,17 @@ export function dogsWithUpcoming(at = new Date()): Set<string> {
 }
 
 // ---------- settings ----------
+
+export function getSetting(key: string): string | null {
+  return one<{ value: string }>("SELECT value FROM settings WHERE key = ?", [key])?.value ?? null;
+}
+
+export function setSetting(key: string, value: string | null) {
+  write(() => {
+    if (value === null) run("DELETE FROM settings WHERE key = ?", [key]);
+    else run("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", [key, value]);
+  });
+}
 
 export type WorkHours = { start: string; end: string };
 export const DEFAULT_WORK_HOURS: WorkHours = { start: "11:00", end: "20:00" };
@@ -589,6 +601,10 @@ export function changeAppointmentProcedure(id: string, procedure: Procedure, var
       ],
     ),
   );
+}
+
+export function markReminded(id: string) {
+  write(() => run("UPDATE appointments SET reminded_at = ? WHERE id = ?", [nowIso(), id]));
 }
 
 export function cancelAppointment(id: string) {

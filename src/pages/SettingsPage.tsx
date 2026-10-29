@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { exportBytes, replaceDb, useDbVersion, write } from "../db/db";
-import { DEFAULT_WORK_HOURS, setWorkHours, workHours } from "../db/repo";
+import { DEFAULT_WORK_HOURS, getSetting, setSetting, setWorkHours, workHours } from "../db/repo";
+import { DEFAULT_REMIND_TEMPLATE, REMIND_FIELDS, REMIND_TEMPLATE_KEY, fillTemplate } from "../lib/remind";
 import { toDateKey } from "../lib/dates";
 import { askConfirm } from "../lib/dialog";
 import { DROPBOX_APP_KEY, startAuth } from "../sync/dropbox";
@@ -153,6 +154,66 @@ function WorkHoursCard() {
   );
 }
 
+function RemindTemplateCard() {
+  useDbVersion();
+  const saved = getSetting(REMIND_TEMPLATE_KEY) ?? DEFAULT_REMIND_TEMPLATE;
+  const [text, setText] = useState(saved);
+  const area = useRef<HTMLTextAreaElement>(null);
+  const caret = useRef<number | null>(null);
+  // Put the caret after an inserted field once React has rendered the new text.
+  useLayoutEffect(() => {
+    if (caret.current === null) return;
+    area.current?.focus();
+    area.current?.setSelectionRange(caret.current, caret.current);
+    caret.current = null;
+  }, [text]);
+  const save = (v: string) => setSetting(REMIND_TEMPLATE_KEY, v.trim() && v.trim() !== DEFAULT_REMIND_TEMPLATE ? v.trim() : null);
+  const insert = (field: string) => {
+    const el = area.current;
+    const at = el ? el.selectionStart : text.length;
+    const end = el ? el.selectionEnd : text.length;
+    const next = text.slice(0, at) + field + text.slice(end);
+    caret.current = at + field.length;
+    setText(next);
+    save(next);
+  };
+  const example = fillTemplate(text || DEFAULT_REMIND_TEMPLATE, { owner: "Ольга", dog: "Тутси", when: "завтра", time: "11:00", procedure: "комплекс (мини)" });
+
+  return (
+    <section className="card">
+      <h2>Напоминание хозяину</h2>
+      <p className="small muted bold">Этот текст копируется кнопкой «Напомнить хозяину». Слова в фигурных скобках заменятся на данные записи.</p>
+      <label className="field">
+        Шаблон
+        <textarea ref={area} className="input" rows={4} value={text} onChange={(e) => setText(e.target.value)} onBlur={() => save(text)} />
+      </label>
+      <div className="row" style={{ gap: 6 }} role="group" aria-label="Вставить">
+        {REMIND_FIELDS.map((f) => (
+          <button key={f} type="button" className="chip" onMouseDown={(e) => e.preventDefault()} onClick={() => insert(f)}>
+            {f}
+          </button>
+        ))}
+      </div>
+      <div className="stack" style={{ gap: 4, padding: "12px 14px", borderRadius: 14, background: "var(--bg)" }}>
+        <span className="tiny bold muted">Как получится</span>
+        <span className="small">{example}</span>
+      </div>
+      {text.trim() !== DEFAULT_REMIND_TEMPLATE && (
+        <button
+          className="btn link"
+          style={{ alignSelf: "flex-start" }}
+          onClick={() => {
+            setText(DEFAULT_REMIND_TEMPLATE);
+            save(DEFAULT_REMIND_TEMPLATE);
+          }}
+        >
+          Вернуть исходный текст
+        </button>
+      )}
+    </section>
+  );
+}
+
 export function SettingsPage() {
   const file = useRef<HTMLInputElement>(null);
   const [toast, showToast] = useToast();
@@ -174,6 +235,8 @@ export function SettingsPage() {
       <div className="split">
         <div className="grow">
           <WorkHoursCard />
+
+          <RemindTemplateCard />
 
           <section className="card">
             <h2>Синхронизация через Dropbox</h2>

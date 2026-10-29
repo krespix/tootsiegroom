@@ -25,6 +25,8 @@ import { askConfirm } from "../lib/dialog";
 import { Avatar, PhotoSlot, Thumb, flash, useToast } from "../components/common";
 import { Icon } from "../components/Icon";
 import { ContactLink } from "../components/OwnerRow";
+import { RemindButton } from "../components/RemindButton";
+import { canRemind } from "../lib/remind";
 
 export function ApptPage() {
   useDbVersion();
@@ -136,6 +138,7 @@ function ApptView({ id }: { id: string }) {
         </div>
         {!cancelled && (
           <div className="row">
+            {canRemind(appt, new Date()) && <RemindButton a={appt} />}
             <button className="btn" onClick={() => setEditing(!editing)}>
               <Icon name="edit" size={16} /> Изменить
             </button>

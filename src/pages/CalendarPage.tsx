@@ -2,6 +2,8 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useDbVersion } from "../db/db";
 import { appointmentsBetween, dogsWithUpcoming, lastVisits, listDogs, unfilledAppointments, workHours, type AppointmentRow } from "../db/repo";
 import { freeSlots, type FreeSlot } from "../lib/slots";
+import { canRemind } from "../lib/remind";
+import { RemindButton } from "../components/RemindButton";
 import {
   addDays,
   addMinutes,
@@ -43,13 +45,16 @@ const what = (a: AppointmentRow) => `${a.proc_name}${a.variant_name ? ` · ${a.v
 function WeekCard({ a }: { a: AppointmentRow }) {
   const st = statusOf(a);
   return (
-    <Link to={`/appt/${a.id}`} className="appt-card" style={{ background: a.color }}>
+    <div className="appt-card" style={{ background: a.color }}>
       <span className="time">{timeRange(a)}</span>
-      <span className="who">{a.dog_name}</span>
+      <Link to={`/appt/${a.id}`} className="who stretch">
+        {a.dog_name}
+      </Link>
       <span className="what">{what(a)}</span>
       {st === "todo" && <span className="fill-btn">Заполнить визит</span>}
       {st === "done" && <span className="done-badge">✓ заполнен</span>}
-    </Link>
+      {canRemind(a, new Date()) && <RemindButton a={a} compact />}
+    </div>
   );
 }
 
@@ -91,21 +96,24 @@ function AgendaCard({ a }: { a: AppointmentRow }) {
   const st = statusOf(a);
   const s = fromLocalStamp(a.starts_at);
   return (
-    <Link to={`/appt/${a.id}`} className="agenda-card" style={{ background: a.color }}>
+    <div className="agenda-card" style={{ background: a.color }}>
       <span style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 52, fontWeight: 800 }}>
         <span style={{ fontSize: 17 }}>{hhmm(s)}</span>
         <span className="tiny">{hhmm(addMinutes(s, a.minutes))}</span>
       </span>
       <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-        <span style={{ fontFamily: "var(--head)", fontWeight: 700, fontSize: 17 }}>{a.dog_name}</span>
+        <Link to={`/appt/${a.id}`} className="stretch" style={{ fontFamily: "var(--head)", fontWeight: 700, fontSize: 17, textDecoration: "none" }}>
+          {a.dog_name}
+        </Link>
         <span className="small bold">
           {what(a)} · {money(amount(a))}
         </span>
         {st === "todo" && <span className="fill-btn" style={{ alignSelf: "flex-start", padding: "6px 12px" }}>Заполнить визит</span>}
         {st === "done" && <span className="done-badge" style={{ marginTop: 6 }}>✓ заполнен</span>}
+        {canRemind(a, new Date()) && <RemindButton a={a} />}
       </span>
       <Avatar id={a.dog_id} name={a.dog_name} photo={a.dog_photo} />
-    </Link>
+    </div>
   );
 }
 
