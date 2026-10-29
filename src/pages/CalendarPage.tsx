@@ -18,7 +18,7 @@ import {
   weekLabel,
   weeksAgo,
 } from "../lib/dates";
-import { RICH_DAY_GEL, money, plural } from "../lib/format";
+import { earningJoke, money, plural } from "../lib/format";
 import { Avatar, useDesktop, useNow } from "../components/common";
 import { Icon } from "../components/Icon";
 import { SyncLabel } from "../components/Layout";
@@ -80,6 +80,7 @@ function TodaySummary({ today, now }: { today: AppointmentRow[]; now: Date }) {
   const ended = (a: AppointmentRow) => addMinutes(fromLocalStamp(a.starts_at), a.minutes) <= now;
   const earned = today.filter(ended).reduce((s, a) => s + amount(a), 0);
   const total = today.reduce((s, a) => s + amount(a), 0);
+  const joke = earningJoke(earned);
   return (
     <section className="card">
       <h2>
@@ -113,10 +114,10 @@ function TodaySummary({ today, now }: { today: AppointmentRow[]; now: Date }) {
           )}
         </div>
       )}
-      {earned > RICH_DAY_GEL && (
+      {joke && (
         <div className="joke">
           <Icon name="heart" size={22} />
-          <span>Ура, ты сегодня много заработала! Не забудь купить Федусику вкусняшку или кока-колку</span>
+          <span>{joke}</span>
         </div>
       )}
     </section>
