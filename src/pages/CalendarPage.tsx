@@ -125,8 +125,8 @@ function DaySummary({ day, appts, now }: { day: Date; appts: AppointmentRow[]; n
           )}
         </div>
       )}
-      <Link to="/stats" className="small bold" style={{ alignSelf: "flex-start" }}>
-        Вся статистика →
+      <Link to="/stats" className="btn" style={{ alignSelf: "flex-start" }}>
+        <Icon name="chart" size={18} /> Вся статистика
       </Link>
       {joke && (
         <div className="joke">
@@ -239,9 +239,14 @@ export function CalendarPage() {
             </span>
             <h1>{sameDay(day, now) ? "Сегодня" : weekdayShort(day) + ", " + day.getDate()}</h1>
           </div>
-          <Link to="/settings" className="btn icon" aria-label="Настройки">
-            <Icon name="settings" />
-          </Link>
+          <div className="row" style={{ flexWrap: "nowrap", gap: 8 }}>
+            <Link to="/stats" className="btn">
+              <Icon name="chart" size={18} /> Статистика
+            </Link>
+            <Link to="/settings" className="btn icon" aria-label="Настройки">
+              <Icon name="settings" />
+            </Link>
+          </div>
         </header>
         <SyncLabel />
 
