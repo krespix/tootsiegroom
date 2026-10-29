@@ -1922,3 +1922,15 @@ textarea.input {
 .history[open] summary {
   margin-bottom: 8px;
 }
+
+/* In the dialog the list scrolls in a soft box; no focus frame around the scroll area. */
+.whats-new.boxed {
+  padding: 14px 16px 14px 32px;
+  border-radius: 16px;
+  background: var(--bg);
+}
+
+.whats-new:focus,
+.whats-new:focus-visible {
+  outline: none;
+}

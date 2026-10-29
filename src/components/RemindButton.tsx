@@ -28,7 +28,10 @@ export function RemindButton({ a, compact }: { a: AppointmentRow; compact?: bool
   const start = () => {
     if (options.length === 1) send(options[0].owner, options[0].contact);
     else if (options.length === 0) flash("У хозяина нет контактов — добавь их в карточке собаки");
-    else dialog.current?.showModal();
+    else {
+      dialog.current?.showModal();
+      dialog.current?.focus(); // not the first option, which would get a focus frame
+    }
   };
 
   const done = !!a.reminded_at;
@@ -43,6 +46,8 @@ export function RemindButton({ a, compact }: { a: AppointmentRow; compact?: bool
           ref={dialog}
           className="dialog"
           aria-label="Куда написать"
+          tabIndex={-1}
+          style={{ outline: "none" }}
           onClick={(e) => {
             if (e.target === dialog.current) dialog.current?.close();
           }}

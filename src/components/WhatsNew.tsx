@@ -35,6 +35,8 @@ export function WhatsNew() {
       if (document.querySelector(".splash, #boot")) return;
       window.clearInterval(t);
       ref.current?.showModal();
+      // showModal focuses the first focusable thing, the scrolling list, and outlines it; focus the dialog itself instead.
+      ref.current?.focus();
     }, 300);
     return () => window.clearInterval(t);
   }, [fresh]);
@@ -49,7 +51,7 @@ export function WhatsNew() {
     ref.current?.close();
   };
   return (
-    <dialog ref={ref} className="dialog" aria-labelledby="whats-new" onCancel={close}>
+    <dialog ref={ref} className="dialog" aria-labelledby="whats-new" onCancel={close} tabIndex={-1} style={{ outline: "none" }}>
       <div className="stack" style={{ gap: 14 }}>
         <h2 id="whats-new">Что нового</h2>
         {fresh.map((c) => (
@@ -57,7 +59,7 @@ export function WhatsNew() {
             <span className="bold">
               {c.title} · {c.date}
             </span>
-            <ul className="whats-new">
+            <ul className="whats-new boxed">
               {c.items.map((it) => (
                 <li key={it}>{it}</li>
               ))}
