@@ -87,7 +87,7 @@ function ApptView({ id }: { id: string }) {
   const brandName = (bid: string) => brands.find((b) => b.id === bid)?.name ?? "";
   const pickedList = products.filter((p) => picked.has(p.id));
 
-  const previous = dogAppointments(dog.id).find((a) => a.id !== id && a.filled_at && a.starts_at < appt.starts_at);
+  const previous = dogAppointments(dog.id).find((a) => a.id !== id && a.status !== "cancelled" && a.filled_at && a.starts_at < appt.starts_at);
   const previousProducts = previous ? usedProducts(previous.id) : [];
 
   // Opened straight from a link there is nothing to go back to, so fall back to the calendar.
