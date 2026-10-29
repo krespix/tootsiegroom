@@ -20,7 +20,7 @@ import {
 import { fromLocalStamp, hhmm, slotLabel, toDateKey } from "../lib/dates";
 import { duration, money } from "../lib/format";
 import { askConfirm } from "../lib/dialog";
-import { Avatar, PhotoSlot, flash, useToast } from "../components/common";
+import { Avatar, PhotoSlot, Thumb, flash, useToast } from "../components/common";
 import { Icon } from "../components/Icon";
 import { ContactLink } from "../components/OwnerRow";
 
@@ -372,10 +372,34 @@ function ApptView({ id }: { id: string }) {
               </div>
             )}
             {previous && (
-              <p className="small muted bold">
-                Прошлый раз ({toDateKey(fromLocalStamp(previous.starts_at)).split("-").reverse().join(".")}, {hhmm(fromLocalStamp(previous.starts_at))}):{" "}
-                {previousProducts.length ? previousProducts.map((p) => `${p.brand_name} · ${p.name}`).join(", ") : "косметика не отмечена"}
-              </p>
+              <div className="stack small" style={{ gap: 6, padding: 12, borderRadius: 14, background: "var(--bg)" }}>
+                <Link to={`/appt/${previous.id}`} className="row bold muted" style={{ justifyContent: "space-between", flexWrap: "nowrap", textDecoration: "none" }}>
+                  <span>
+                    Прошлый визит · {toDateKey(fromLocalStamp(previous.starts_at)).split("-").reverse().join(".")}, {hhmm(fromLocalStamp(previous.starts_at))}
+                  </span>
+                  <Icon name="right" size={16} />
+                </Link>
+                <span className="bold">
+                  {previous.proc_name}
+                  {previous.variant_name ? `, ${previous.variant_name.toLowerCase()}` : ""}
+                </span>
+                {previousProducts.length > 0 && (
+                  <div className="row" style={{ gap: 6 }}>
+                    {previousProducts.map((p) => (
+                      <span key={p.id} className="tag">
+                        {p.brand_name} · {p.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {previous.notes && <span style={{ lineHeight: 1.45, whiteSpace: "pre-line" }}>{previous.notes}</span>}
+                {(previous.photo_before || previous.photo_after) && (
+                  <div className="row">
+                    <Thumb name={previous.photo_before} label="до" />
+                    <Thumb name={previous.photo_after} label="после" />
+                  </div>
+                )}
+              </div>
             )}
           </section>
           {!cancelled && (
