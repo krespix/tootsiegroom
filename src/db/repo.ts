@@ -353,7 +353,7 @@ export type ProcedureInput = Omit<Procedure, "id" | "sort" | "archived"> & { id?
  * Bookings from today on follow the current price list: name, colour, duration
  * and price are re-copied from the procedure. Past days keep what they were booked at.
  */
-function refreshUpcoming(p: ProcedureInput & { id: string }) {
+function refreshUpcoming(id: string, p: ProcedureInput, variants: (VariantInput & { id: string })[]) {
   const from = toDateKey(new Date());
   const now = nowIso();
   const where = "procedure_id = ? AND starts_at >= ? AND status != 'cancelled'";
@@ -366,11 +366,21 @@ function refreshUpcoming(p: ProcedureInput & { id: string }) {
     p.price,
     p.price,
     now,
-    p.id,
+    id,
     from,
   ]);
-  for (const v of p.variants) {
-    if (!v.id) continue;
+  // A variant removed and added again gets a new id, so bookings left on a gone id are matched by name.
+  const ids = new Set(variants.map((v) => v.id));
+  const byName = new Map(variants.map((v) => [v.name.trim().toLowerCase(), v.id]));
+  const stray = all<{ id: string; variant_id: string; variant_name: string }>(
+    `SELECT id, variant_id, variant_name FROM appointments WHERE ${where} AND variant_id IS NOT NULL`,
+    [id, from],
+  ).filter((a) => !ids.has(a.variant_id));
+  for (const a of stray) {
+    const vid = byName.get(a.variant_name.trim().toLowerCase());
+    if (vid) run("UPDATE appointments SET variant_id = ? WHERE id = ?", [vid, a.id]);
+  }
+  for (const v of variants) {
     run(`UPDATE appointments SET proc_name = ?, variant_name = ?, color = ?, minutes = ?, ${setPrice}, updated_at = ? WHERE ${where} AND variant_id = ?`, [
       p.name,
       v.name,
@@ -379,7 +389,7 @@ function refreshUpcoming(p: ProcedureInput & { id: string }) {
       v.price,
       v.price,
       now,
-      p.id,
+      id,
       from,
       v.id,
     ]);
@@ -412,10 +422,11 @@ export function saveProcedure(p: ProcedureInput): string {
       ]);
     }
     // Appointments keep their own copy of the variant, so replacing rows is safe.
+    const variants = p.variants.map((v) => ({ ...v, id: v.id ?? newId() }));
     run("DELETE FROM procedure_variants WHERE procedure_id = ?", [id]);
-    p.variants.forEach((v, i) =>
+    variants.forEach((v, i) =>
       run("INSERT INTO procedure_variants (id, procedure_id, name, minutes, price, sort) VALUES (?,?,?,?,?,?)", [
-        v.id ?? newId(),
+        v.id,
         id!,
         v.name,
         v.minutes,
@@ -423,7 +434,7 @@ export function saveProcedure(p: ProcedureInput): string {
         i,
       ]),
     );
-    if (p.id) refreshUpcoming(p as ProcedureInput & { id: string });
+    if (p.id) refreshUpcoming(id, p, variants);
     return id;
   });
 }

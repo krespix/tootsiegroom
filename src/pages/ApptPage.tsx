@@ -215,8 +215,8 @@ function ApptView({ id }: { id: string }) {
               onClick={() => {
                 const startsAt = `${newDate}T${newTime}`;
                 if (startsAt !== appt.starts_at) rescheduleAppointment(id, startsAt);
-                // Only a real switch re-reads the price list, so an old visit keeps its price otherwise.
-                if (procChanged && proc) {
+                // Past visits keep their price unless the procedure is switched; from today on the price list is re-read.
+                if (proc && (procChanged || newDate >= toDateKey(new Date()))) {
                   changeAppointmentProcedure(id, proc, variant);
                   if (paid === String(appt.price)) setPaid(String(variant?.price ?? proc.price));
                 }
