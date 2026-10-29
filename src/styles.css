@@ -1766,6 +1766,11 @@ textarea.input {
   transition: transform 0.22s ease-out;
 }
 
+/* Rows that were stretched by their grid stretch inside the swipe too (buttons otherwise shrink to fit). */
+.swipe-body > * {
+  width: 100%;
+}
+
 .swipe-body.dragging {
   transition: none;
 }

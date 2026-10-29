@@ -6,6 +6,7 @@ import { Icon, type IconName } from "./Icon";
 import { useSyncState } from "../sync/sync";
 import { DialogHost } from "./DialogHost";
 import { FlashHost } from "./common";
+import { Splash } from "./Splash";
 
 const SECTIONS: { to: string; label: string; icon: IconName }[] = [
   { to: "/", label: "Календарь", icon: "calendar" },
@@ -100,6 +101,7 @@ export function Layout() {
       </nav>
       <DialogHost />
       <FlashHost />
+      <Splash />
     </div>
   );
 }

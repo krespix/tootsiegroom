@@ -1,15 +1,15 @@
-import { Fragment, useState } from "react";
+import { Fragment, useRef, useState, type MutableRefObject } from "react";
 import { useDbVersion } from "../db/db";
 import { archiveProcedure, listProcedures, saveProcedure, type ProcedureInput, type VariantInput } from "../db/repo";
 import { PASTELS, duration, money } from "../lib/format";
 import { askConfirm } from "../lib/dialog";
 import { DurationFields, InlinePanel, NumberInput, useDesktop } from "../components/common";
 import { Icon } from "../components/Icon";
-import { Swipe } from "../components/Swipe";
 
 const COLOR_NAMES = ["Розовый", "Мятный", "Жёлтый", "Сиреневый", "Голубой"];
 
-function ProcedureEditor({ initial, onDone }: { initial: ProcedureInput; onDone: () => void }) {
+/** `saveRef` lets the list save the open form when its row is tapped; it returns false if the form is not valid. */
+function ProcedureEditor({ initial, onDone, saveRef }: { initial: ProcedureInput; onDone: () => void; saveRef: MutableRefObject<(() => boolean) | null> }) {
   const [p, setP] = useState(initial);
   const set = <K extends keyof ProcedureInput>(k: K, v: ProcedureInput[K]) => setP((x) => ({ ...x, [k]: v }));
   const setVariant = (i: number, patch: Partial<VariantInput>) =>
@@ -18,6 +18,12 @@ function ProcedureEditor({ initial, onDone }: { initial: ProcedureInput; onDone:
       p.variants.map((v, j) => (j === i ? { ...v, ...patch } : v)),
     );
   const valid = p.name.trim() && p.variants.every((v) => v.name.trim() && v.minutes > 0);
+  const save = () => {
+    if (!valid) return false;
+    saveProcedure({ ...p, name: p.name.trim(), variants: p.variants.map((v) => ({ ...v, name: v.name.trim() })) });
+    return true;
+  };
+  saveRef.current = save;
 
   return (
     <section className="card">
@@ -96,8 +102,7 @@ function ProcedureEditor({ initial, onDone }: { initial: ProcedureInput; onDone:
         className="btn primary big wide"
         disabled={!valid}
         onClick={() => {
-          saveProcedure({ ...p, name: p.name.trim(), variants: p.variants.map((v) => ({ ...v, name: v.name.trim() })) });
-          onDone();
+          if (save()) onDone();
         }}
       >
         Сохранить
@@ -129,19 +134,16 @@ export function ProceduresPage() {
   useDbVersion();
   const procs = listProcedures();
   const [editing, setEditing] = useState<ProcedureInput | null>(null);
+  const saveOpen = useRef<(() => boolean) | null>(null);
+  // Tapping a row while a form is open saves that form first; tapping its own row closes it.
+  const tapRow = (p: (typeof procs)[number]) => {
+    if (editing && !(saveOpen.current?.() ?? true)) return;
+    setEditing(editing?.id === p.id ? null : { ...p, variants: p.variants.map(({ id, name, minutes, price }) => ({ id, name, minutes, price })) });
+  };
   const desktop = useDesktop();
   // Desktop edits in the side column; the phone opens the form right where it was tapped.
-  const editor = editing && <ProcedureEditor key={editing.id ?? "new"} initial={editing} onDone={() => setEditing(null)} />;
+  const editor = editing && <ProcedureEditor key={editing.id ?? "new"} initial={editing} onDone={() => setEditing(null)} saveRef={saveOpen} />;
 
-  const openEditor = (p: (typeof procs)[number]) =>
-    setEditing({ ...p, variants: p.variants.map(({ id, name, minutes, price }) => ({ id, name, minutes, price })) });
-  const removeProcedure = async (id: string, name: string) => {
-    const ok = await askConfirm({ title: `Убрать «${name}»?`, text: "Из списка исчезнет, старые записи останутся.", okText: "Убрать", danger: true });
-    if (ok) {
-      archiveProcedure(id);
-      if (editing?.id === id) setEditing(null);
-    }
-  };
   const startNew = () =>
     setEditing({ name: "", description: "", color: PASTELS[procs.length % PASTELS.length], minutes: 60, price: 0, variants: [] });
 
@@ -170,37 +172,30 @@ export function ProceduresPage() {
           {!desktop && editing && !editing.id && <InlinePanel>{editor}</InlinePanel>}
           {procs.map((p) => (
             <Fragment key={p.id}>
-              <Swipe
-                actions={[
-                  { label: "Изменить", icon: "edit", tone: "primary", onClick: () => openEditor(p) },
-                  { label: "Убрать", icon: "x", tone: "danger", onClick: () => void removeProcedure(p.id, p.name) },
-                ]}
+              <button
+                type="button"
+                className={`pick${editing?.id === p.id ? " on" : ""}`}
+                style={{ background: p.color, flexDirection: "column", alignItems: "stretch", gap: 12, padding: "16px 18px", borderRadius: 22 }}
+                onClick={() => tapRow(p)}
               >
-                <button
-                  type="button"
-                  className={`pick${editing?.id === p.id ? " on" : ""}`}
-                  style={{ background: p.color, flexDirection: "column", alignItems: "stretch", gap: 12, padding: "16px 18px", borderRadius: 22 }}
-                  onClick={() => openEditor(p)}
-                >
-                  <span className="stack" style={{ gap: 2 }}>
-                    <span style={{ fontFamily: "var(--head)", fontWeight: 700, fontSize: 18 }}>{p.name}</span>
-                    {p.description && <span className="small bold">{p.description}</span>}
-                  </span>
-                  <span className="row" style={{ gap: 8 }}>
-                    {p.variants.length === 0 ? (
-                      <span className="tag" style={{ borderStyle: "dashed" }}>
-                        Без подтипов · {duration(p.minutes)} · <b>{money(p.price)}</b>
+                <span className="stack" style={{ gap: 2 }}>
+                  <span style={{ fontFamily: "var(--head)", fontWeight: 700, fontSize: 18 }}>{p.name}</span>
+                  {p.description && <span className="small bold">{p.description}</span>}
+                </span>
+                <span className="row" style={{ gap: 8 }}>
+                  {p.variants.length === 0 ? (
+                    <span className="tag" style={{ borderStyle: "dashed" }}>
+                      Без подтипов · {duration(p.minutes)} · <b>{money(p.price)}</b>
+                    </span>
+                  ) : (
+                    p.variants.map((v) => (
+                      <span key={v.id} className="tag">
+                        {v.name} · {duration(v.minutes)} · <b>{money(v.price)}</b>
                       </span>
-                    ) : (
-                      p.variants.map((v) => (
-                        <span key={v.id} className="tag">
-                          {v.name} · {duration(v.minutes)} · <b>{money(v.price)}</b>
-                        </span>
-                      ))
-                    )}
-                  </span>
-                </button>
-              </Swipe>
+                    ))
+                  )}
+                </span>
+              </button>
               {!desktop && editing?.id === p.id && <InlinePanel>{editor}</InlinePanel>}
             </Fragment>
           ))}

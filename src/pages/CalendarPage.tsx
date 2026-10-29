@@ -25,6 +25,7 @@ import {
 import { money, plural } from "../lib/format";
 import { earningJoke, greetName, greeting, jokeLevel, todaySummary } from "../lib/prefs";
 import { celebrate } from "../lib/fx";
+import { useReturn } from "../lib/session";
 import { Avatar, useDesktop, useNow } from "../components/common";
 import { Icon } from "../components/Icon";
 import { SyncLabel } from "../components/Layout";
@@ -164,6 +165,8 @@ function DaySummary({ day, appts, now }: { day: Date; appts: AppointmentRow[]; n
 
   // Paws fly once each time today reaches a new joke threshold.
   const level = isToday ? jokeLevel(earned) : -1;
+  // Coming back after a full close or 3+ hours away forgets shown tiers (lib/session), so the paws replay.
+  const back = useReturn();
   useEffect(() => {
     if (level < 0) return;
     const key = `fx:joke:${toDateKey(day)}`;
@@ -181,7 +184,7 @@ function DaySummary({ day, appts, now }: { day: Date; appts: AppointmentRow[]; n
         // ignore
       }
     }
-  }, [level, day]);
+  }, [level, day, back]);
 
   return (
     <section className="card">

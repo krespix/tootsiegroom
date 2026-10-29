@@ -10,6 +10,11 @@ const COLORS = ["#D81B60", "#7B4A93", "#F2A93B", "#2E9E77", "#F48FB1"];
 /** A burst of paw prints flying up from the bottom of the screen. */
 export function celebrate(big = false) {
   if (!fxEnabled()) return;
+  // Wait for the splash to clear so the paws are not hidden behind it.
+  if (document.querySelector(".splash")) {
+    window.setTimeout(() => celebrate(big), 300);
+    return;
+  }
   const layer = document.createElement("div");
   layer.className = "paws";
   layer.setAttribute("aria-hidden", "true");
