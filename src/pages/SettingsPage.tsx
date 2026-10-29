@@ -6,7 +6,7 @@ import { DEFAULT_JOKES, fxOn, greetName, greeting, jokes, jokesOn, type Joke } f
 import { toDateKey } from "../lib/dates";
 import { bytesLabel, plural } from "../lib/format";
 import { localPhotoUsage } from "../lib/photos";
-import { badgeOn, badgeSupported, isAndroid, updateBadge } from "../lib/badge";
+import { badgeOn, badgeSupported, isIOS, updateBadge } from "../lib/badge";
 import { installed } from "../lib/session";
 import { CHANGES } from "../lib/changelog";
 import { askConfirm } from "../lib/dialog";
@@ -383,7 +383,7 @@ function StorageCard() {
 
 function BadgeCard() {
   useDbVersion();
-  if (isAndroid()) return null; // Android launchers ignore web app badges
+  if (!isIOS()) return null; // an iPhone feature: Android ignores web app badges, computers don't need it
   const [permission, setPermission] = useState(() => ("Notification" in window ? Notification.permission : "unsupported"));
   if (!badgeSupported())
     return (
