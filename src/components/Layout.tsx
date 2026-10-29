@@ -2,11 +2,14 @@ import { useEffect } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useDbVersion } from "../db/db";
 import { fxOn } from "../lib/prefs";
+import { updateBadge } from "../lib/badge";
 import { Icon, type IconName } from "./Icon";
 import { useSyncState } from "../sync/sync";
 import { DialogHost } from "./DialogHost";
 import { FlashHost } from "./common";
 import { Splash } from "./Splash";
+import { ErrorBoundary } from "./ErrorBoundary";
+import { WhatsNew } from "./WhatsNew";
 
 const SECTIONS: { to: string; label: string; icon: IconName }[] = [
   { to: "/", label: "Календарь", icon: "calendar" },
@@ -35,11 +38,17 @@ export function SyncLabel() {
 }
 
 export function Layout() {
-  useDbVersion();
+  const version = useDbVersion();
   const animate = fxOn();
   useEffect(() => {
     document.documentElement.classList.toggle("no-fx", !animate);
   }, [animate]);
+  // Recount on every change, and every few minutes since visits become "past" by themselves.
+  useEffect(updateBadge, [version]);
+  useEffect(() => {
+    const t = window.setInterval(updateBadge, 5 * 60_000);
+    return () => window.clearInterval(t);
+  }, []);
   // Keyed by section so moving between sections fades in, while /dogs/a → /dogs/b keeps the list.
   const section = useLocation().pathname.split("/")[1];
 
@@ -75,7 +84,9 @@ export function Layout() {
       </nav>
 
       <main className="main page-in" key={section}>
-        <Outlet />
+        <ErrorBoundary>
+          <Outlet />
+        </ErrorBoundary>
       </main>
 
       <nav className="tabbar" aria-label="Разделы">
@@ -102,6 +113,7 @@ export function Layout() {
       <DialogHost />
       <FlashHost />
       <Splash />
+      <WhatsNew />
     </div>
   );
 }

@@ -1863,3 +1863,62 @@ textarea.input {
     transform: translateY(10px);
   }
 }
+
+.crash {
+  padding: 40px 16px;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.check-mark {
+  flex: none;
+  vertical-align: -2px;
+}
+
+/* The hidden start lives in the keyframes, so with animations off the check is simply there. */
+.check-mark.draw path {
+  stroke-dasharray: 24;
+  animation: draw-check 0.5s ease-out 0.15s both;
+}
+
+@keyframes draw-check {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.done-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.whats-new {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 1.45;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+.history {
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--bg);
+}
+
+.history summary {
+  cursor: pointer;
+  min-height: 28px;
+}
+
+.history[open] summary {
+  margin-bottom: 8px;
+}

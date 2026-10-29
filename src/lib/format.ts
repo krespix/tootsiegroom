@@ -40,3 +40,11 @@ export function plural(n: number, one: string, few: string, many: string) {
   if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
   return many;
 }
+
+/** "340 КБ", "1,2 МБ", "1,05 ГБ" */
+export function bytesLabel(n: number) {
+  if (n === 0) return "0 КБ";
+  if (n < 1024 * 1024) return `${Math.max(1, Math.round(n / 1024))} КБ`;
+  if (n < 1024 ** 3) return `${(n / 1024 / 1024).toLocaleString("ru-RU", { maximumFractionDigits: 1 })} МБ`;
+  return `${(n / 1024 ** 3).toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ГБ`;
+}

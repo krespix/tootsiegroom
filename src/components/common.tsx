@@ -226,8 +226,8 @@ export function Toast({ children }: { children: ReactNode }) {
   );
 }
 
-export function useToast(): [ReactNode, (msg: string) => void] {
-  const [msg, setMsg] = useState<string | null>(null);
+export function useToast(): [ReactNode, (msg: ReactNode) => void] {
+  const [msg, setMsg] = useState<ReactNode>(null);
   useEffect(() => {
     if (!msg) return;
     const t = window.setTimeout(() => setMsg(null), 2200);
@@ -268,8 +268,27 @@ export function useNow() {
 }
 
 /** App-wide toast that survives navigation, e.g. "saved" after a form closes. */
-let showFlash: ((msg: string) => void) | null = null;
-export const flash = (msg: string) => showFlash?.(msg);
+let showFlash: ((msg: ReactNode) => void) | null = null;
+/** `ok` adds a check mark that draws itself, for "done" moments. */
+export const flash = (msg: string, ok = false) =>
+  showFlash?.(
+    ok ? (
+      <span className="row" style={{ gap: 8, flexWrap: "nowrap" }}>
+        <CheckMark animate />
+        {msg}
+      </span>
+    ) : (
+      msg
+    ),
+  );
+
+export function CheckMark({ animate = false, size = 16 }: { animate?: boolean; size?: number }) {
+  return (
+    <svg className={`check-mark${animate ? " draw" : ""}`} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </svg>
+  );
+}
 
 export function FlashHost() {
   const [toast, show] = useToast();

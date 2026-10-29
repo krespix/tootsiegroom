@@ -14,6 +14,7 @@ import { ApptPage } from "./pages/ApptPage";
 import { CosmeticsPage } from "./pages/CosmeticsPage";
 import { ProceduresPage } from "./pages/ProceduresPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { CrashScreen } from "./components/ErrorBoundary";
 import { StatsPage } from "./pages/StatsPage";
 
 // A home-screen app can stay in memory for days, so look for a new version
@@ -57,4 +58,18 @@ async function start() {
   );
 }
 
-void start();
+/** The logo shown by index.html until the app has drawn its first screen. */
+function hideBoot() {
+  const boot = document.getElementById("boot");
+  if (!boot) return;
+  boot.classList.add("gone");
+  window.setTimeout(() => boot.remove(), 400);
+}
+
+start()
+  .then(hideBoot)
+  .catch((error) => {
+    // The base could not open (storage blocked, a broken update…): say so instead of a blank page.
+    createRoot(document.getElementById("root")!).render(<CrashScreen error={error} />);
+    hideBoot();
+  });

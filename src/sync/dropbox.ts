@@ -125,3 +125,27 @@ export async function download(path: string): Promise<{ blob: Blob; meta: FileMe
   const meta = JSON.parse(res.headers.get("Dropbox-API-Result") ?? "{}") as FileMeta;
   return { blob: await res.blob(), meta };
 }
+
+type ListPage = { entries: { ".tag": string; size?: number }[]; cursor: string; has_more: boolean };
+
+/** How many files the app folder holds and how much space they take. */
+export async function folderUsage(): Promise<{ files: number; bytes: number }> {
+  const list = async (url: string, body: object): Promise<ListPage> => {
+    const res = await call(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!res.ok) throw new Error(`Dropbox: ${res.status} ${await res.text()}`);
+    return res.json();
+  };
+  let page = await list("https://api.dropboxapi.com/2/files/list_folder", { path: "", recursive: true });
+  let files = 0;
+  let bytes = 0;
+  for (;;) {
+    for (const e of page.entries) {
+      if (e[".tag"] !== "file") continue;
+      files++;
+      bytes += e.size ?? 0;
+    }
+    if (!page.has_more) break;
+    page = await list("https://api.dropboxapi.com/2/files/list_folder/continue", { cursor: page.cursor });
+  }
+  return { files, bytes };
+}

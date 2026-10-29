@@ -1,4 +1,4 @@
-import { get, set } from "idb-keyval";
+import { entries, get, set } from "idb-keyval";
 import { useEffect, useState } from "react";
 import { newId } from "./format";
 import { fetchRemotePhoto, queuePhotoUpload, syncNow } from "../sync/sync";
@@ -56,4 +56,17 @@ export function usePhotoUrl(name: string | null | undefined): string | null {
     };
   }, [name]);
   return url;
+}
+
+/** Photos kept on this device: how many and how much space. */
+export async function localPhotoUsage() {
+  let files = 0;
+  let bytes = 0;
+  for (const [key, value] of await entries()) {
+    if (typeof key === "string" && key.startsWith("photo:") && value instanceof Blob) {
+      files++;
+      bytes += value.size;
+    }
+  }
+  return { files, bytes };
 }

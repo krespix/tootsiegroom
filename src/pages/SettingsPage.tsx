@@ -4,8 +4,13 @@ import { DEFAULT_WORK_HOURS, getSetting, setSetting, setWorkHours, workHours } f
 import { DEFAULT_REMIND_TEMPLATE, REMIND_FIELDS, REMIND_TEMPLATE_KEY, fillTemplate } from "../lib/remind";
 import { DEFAULT_JOKES, fxOn, greetName, greeting, jokes, jokesOn, type Joke } from "../lib/prefs";
 import { toDateKey } from "../lib/dates";
+import { bytesLabel, plural } from "../lib/format";
+import { localPhotoUsage } from "../lib/photos";
+import { badgeOn, badgeSupported, updateBadge } from "../lib/badge";
+import { installed } from "../lib/session";
+import { CHANGES } from "../lib/changelog";
 import { askConfirm } from "../lib/dialog";
-import { DROPBOX_APP_KEY, startAuth } from "../sync/dropbox";
+import { DROPBOX_APP_KEY, folderUsage, startAuth } from "../sync/dropbox";
 import { connectDropbox, disconnectDropbox, syncNow, useSyncState } from "../sync/sync";
 import { SyncLabel } from "../components/Layout";
 import { NumberInput, useToast } from "../components/common";
@@ -290,6 +295,138 @@ function JokesCard() {
   );
 }
 
+const DROPBOX_FREE = 2 * 1024 ** 3;
+
+function StorageCard() {
+  const sync = useSyncState();
+  const [local, setLocal] = useState<{ files: number; bytes: number } | null>(null);
+  const [cloud, setCloud] = useState<{ files: number; bytes: number } | "error" | null>(null);
+  const dbBytes = exportBytes().length;
+
+  useEffect(() => {
+    void localPhotoUsage().then(setLocal);
+  }, []);
+  useEffect(() => {
+    if (!sync.connected) return;
+    folderUsage()
+      .then(setCloud)
+      .catch(() => setCloud("error"));
+  }, [sync.connected]);
+
+  return (
+    <section className="card">
+      <h2>Место</h2>
+      <div className="stack" style={{ gap: 6 }}>
+        <span className="row bold" style={{ justifyContent: "space-between" }}>
+          <span>База</span>
+          <span>{bytesLabel(dbBytes)}</span>
+        </span>
+        <span className="row bold" style={{ justifyContent: "space-between" }}>
+          <span>Фото на этом устройстве</span>
+          <span>{local ? `${local.files} ${plural(local.files, "фото", "фото", "фото")} · ${bytesLabel(local.bytes)}` : "считаю…"}</span>
+        </span>
+        {sync.connected && (
+          <span className="row bold" style={{ justifyContent: "space-between" }}>
+            <span>В Dropbox</span>
+            <span>
+              {cloud === null ? "считаю…" : cloud === "error" ? "не удалось посчитать" : `${bytesLabel(cloud.bytes)} из 2 ГБ`}
+            </span>
+          </span>
+        )}
+      </div>
+      {sync.connected && cloud && cloud !== "error" && (
+        <>
+          <span className="st-track" aria-hidden="true">
+            <span className="st-fill" style={{ width: `${Math.max(1, (cloud.bytes / DROPBOX_FREE) * 100)}%` }} />
+          </span>
+          <p className="small muted bold">
+            Бесплатного Dropbox хватит ещё примерно на {Math.max(0, Math.floor((DROPBOX_FREE - cloud.bytes) / (250 * 1024))).toLocaleString("ru-RU")} фото (по ~250 КБ).
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
+function BadgeCard() {
+  useDbVersion();
+  const [permission, setPermission] = useState(() => ("Notification" in window ? Notification.permission : "unsupported"));
+  if (!badgeSupported())
+    return (
+      <section className="card">
+        <h2>Цифра на иконке</h2>
+        <p className="small muted bold">
+          {installed()
+            ? "Этот телефон или браузер не умеет показывать цифру на иконке."
+            : "Цифра на иконке работает, когда приложение добавлено на экран «Домой». Открой его оттуда и вернись сюда."}
+        </p>
+      </section>
+    );
+  const on = badgeOn();
+  return (
+    <section className="card">
+      <h2>Цифра на иконке</h2>
+      <p className="small muted bold">На иконке приложения — сколько прошедших визитов ещё не заполнено.</p>
+      {permission !== "granted" && permission !== "unsupported" ? (
+        <>
+          <p className="small bold">
+            {permission === "denied"
+              ? "Уведомления для приложения запрещены. Разреши их в настройках телефона: Настройки → Уведомления → TootsieGroom, и включи «Наклейки»."
+              : "Айфон показывает цифру только приложениям, которым разрешены уведомления. Присылать уведомления приложение не будет — это нужно только для цифры."}
+          </p>
+          {permission === "default" && (
+            <button
+              className="btn primary"
+              style={{ alignSelf: "flex-start" }}
+              onClick={async () => {
+                const p = await Notification.requestPermission();
+                setPermission(p);
+                updateBadge();
+              }}
+            >
+              Включить цифру на иконке
+            </button>
+          )}
+        </>
+      ) : (
+        <label className="row bold" style={{ gap: 10, flexWrap: "nowrap", cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={on}
+            onChange={(e) => {
+              setSetting("badge_off", e.target.checked ? null : "1");
+              updateBadge();
+            }}
+            style={{ width: 22, height: 22, accentColor: "var(--pink)" }}
+          />
+          Показывать цифру
+        </label>
+      )}
+    </section>
+  );
+}
+
+function HistoryCard() {
+  return (
+    <section className="card" id="history">
+      <h2>История обновлений</h2>
+      {CHANGES.map((c, i) => (
+        <details key={c.id} className="history" open={i === 0}>
+          <summary>
+            <span className="bold">{c.title}</span>
+            <span className="small muted bold"> · {c.date}</span>
+          </summary>
+          <ul className="whats-new">
+            {c.items.map((it) => (
+              <li key={it}>{it}</li>
+            ))}
+          </ul>
+        </details>
+      ))}
+    </section>
+  );
+}
+
 export function SettingsPage() {
   const file = useRef<HTMLInputElement>(null);
   const [toast, showToast] = useToast();
@@ -317,6 +454,8 @@ export function SettingsPage() {
           <LookCard />
 
           <JokesCard />
+
+          <BadgeCard />
 
           <section className="card">
             <h2>Синхронизация через Dropbox</h2>
@@ -359,6 +498,10 @@ export function SettingsPage() {
               />
             </div>
           </section>
+
+          <StorageCard />
+
+          <HistoryCard />
           <p className="tiny bold muted" style={{ textAlign: "center" }}>
             Версия от {new Date(__BUILD__).toLocaleString("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}
           </p>

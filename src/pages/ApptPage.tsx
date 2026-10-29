@@ -22,7 +22,7 @@ import { addDays, fromLocalStamp, hhmm, slotLabel, toDateKey } from "../lib/date
 import { clashLabel, clashes } from "../lib/slots";
 import { duration, money } from "../lib/format";
 import { askConfirm } from "../lib/dialog";
-import { celebrate } from "../lib/fx";
+import { celebrate, markJustFilled } from "../lib/fx";
 import { Avatar, PhotoSlot, Thumb, flash, useToast } from "../components/common";
 import { Icon } from "../components/Icon";
 import { ContactLink } from "../components/OwnerRow";
@@ -110,8 +110,11 @@ function ApptView({ id }: { id: string }) {
     // Paid equal to the price list is not stored, so later price changes still flow into the visit.
     const paidValue = paid === "" || Number(paid) === appt.price ? null : Number(paid);
     const filled = saveVisit(id, { paid: paidValue, notes, productIds: [...picked] });
-    flash(filled ? "Визит сохранён" : "Сохранено. Пока пусто — визит не заполнен");
-    if (filled) celebrate();
+    flash(filled ? "Визит сохранён" : "Сохранено. Пока пусто — визит не заполнен", filled);
+    if (filled) {
+      celebrate();
+      markJustFilled(id);
+    }
     close();
   };
 

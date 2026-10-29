@@ -13,8 +13,30 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
     <title>TootsieGroom</title>
+    <style>
+      /* Shown while the base loads, so the app never opens on a blank screen. */
+      #boot {
+        position: fixed;
+        inset: 0;
+        z-index: 300;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #faf6f8;
+        transition: opacity 0.35s ease;
+      }
+      #boot img {
+        width: 168px;
+        height: 168px;
+      }
+      #boot.gone {
+        opacity: 0;
+        pointer-events: none;
+      }
+    </style>
   </head>
   <body>
+    <div id="boot" aria-hidden="true"><img src="/pwa-512x512.png" alt="" /></div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

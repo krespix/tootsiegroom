@@ -24,9 +24,9 @@ import {
 } from "../lib/dates";
 import { money, plural } from "../lib/format";
 import { earningJoke, greetName, greeting, jokeLevel, todaySummary } from "../lib/prefs";
-import { celebrate } from "../lib/fx";
+import { celebrate, takeJustFilled } from "../lib/fx";
 import { useReturn } from "../lib/session";
-import { Avatar, useDesktop, useNow } from "../components/common";
+import { Avatar, CheckMark, useDesktop, useNow } from "../components/common";
 import { Icon } from "../components/Icon";
 import { SyncLabel } from "../components/Layout";
 
@@ -47,6 +47,15 @@ function timeRange(a: AppointmentRow) {
 
 const what = (a: AppointmentRow) => `${a.proc_name}${a.variant_name ? ` · ${a.variant_name.toLowerCase()}` : ""}`;
 
+function DoneBadge({ id }: { id: string }) {
+  const [animate] = useState(() => takeJustFilled(id));
+  return (
+    <span className="done-badge">
+      <CheckMark animate={animate} size={13} /> заполнен
+    </span>
+  );
+}
+
 function WeekCard({ a }: { a: AppointmentRow }) {
   const st = statusOf(a);
   return (
@@ -57,7 +66,7 @@ function WeekCard({ a }: { a: AppointmentRow }) {
       </Link>
       <span className="what">{what(a)}</span>
       {st === "todo" && <span className="fill-btn">Заполнить визит</span>}
-      {st === "done" && <span className="done-badge">✓ заполнен</span>}
+      {st === "done" && <DoneBadge id={a.id} />}
       {canRemind(a, new Date()) && <RemindButton a={a} compact />}
     </div>
   );
@@ -132,7 +141,7 @@ function AgendaCard({ a }: { a: AppointmentRow }) {
           {what(a)} · {money(amount(a))}
         </span>
         {st === "todo" && <span className="fill-btn" style={{ alignSelf: "flex-start", padding: "6px 12px" }}>Заполнить визит</span>}
-        {st === "done" && <span className="done-badge" style={{ marginTop: 6 }}>✓ заполнен</span>}
+        {st === "done" && <DoneBadge id={a.id} />}
         {canRemind(a, new Date()) && <RemindButton a={a} />}
       </span>
       <Avatar id={a.dog_id} name={a.dog_name} photo={a.dog_photo} />

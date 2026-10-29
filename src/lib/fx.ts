@@ -38,3 +38,14 @@ export function celebrate(big = false) {
   document.body.appendChild(layer);
   window.setTimeout(() => layer.remove(), 2600);
 }
+
+/** The visit just filled in gets its check mark drawn once back in the calendar. */
+let justFilled: string | null = null;
+export const markJustFilled = (id: string) => {
+  justFilled = id;
+};
+export function takeJustFilled(id: string) {
+  if (justFilled !== id) return false;
+  justFilled = null;
+  return true;
+}
