@@ -178,7 +178,7 @@ export function CosmeticsPage() {
                       <span className="avatar" style={{ width: 44, height: 44, background: b.color }}>
                         {b.name.charAt(0).toUpperCase()}
                       </span>
-                      <h2 style={{ flex: 1, fontSize: 22 }}>{b.name}</h2>
+                      <h2 style={{ flex: 1, minWidth: 0, fontSize: 22 }}>{b.name}</h2>
                       <button
                         className="btn icon"
                         aria-label={`Переименовать ${b.name}`}

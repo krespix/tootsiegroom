@@ -8,7 +8,8 @@ export function ContactLink({ contact }: { contact: Contact }) {
   const meta = kindMeta(contact.kind);
   const body = (
     <>
-      <Icon name={meta.icon} size={16} /> {contactLabel(contact)}
+      <Icon name={meta.icon} size={16} />
+      <span className="clip">{contactLabel(contact)}</span>
     </>
   );
   if (!href) return <span className="btn">{body}</span>;
