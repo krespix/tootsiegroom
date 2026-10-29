@@ -234,3 +234,33 @@ export function useToast(): [ReactNode, (msg: string) => void] {
   }, [msg]);
   return [msg ? <Toast>{msg}</Toast> : null, setMsg];
 }
+
+/** Current local time, refreshed every minute so time-dependent views stay correct while open. */
+export function useNow() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(new Date()), 60_000);
+    const wake = () => document.visibilityState === "visible" && setNow(new Date());
+    document.addEventListener("visibilitychange", wake);
+    return () => {
+      window.clearInterval(t);
+      document.removeEventListener("visibilitychange", wake);
+    };
+  }, []);
+  return now;
+}
+
+/** App-wide toast that survives navigation, e.g. "saved" after a form closes. */
+let showFlash: ((msg: string) => void) | null = null;
+export const flash = (msg: string) => showFlash?.(msg);
+
+export function FlashHost() {
+  const [toast, show] = useToast();
+  useEffect(() => {
+    showFlash = show;
+    return () => {
+      showFlash = null;
+    };
+  }, [show]);
+  return toast;
+}

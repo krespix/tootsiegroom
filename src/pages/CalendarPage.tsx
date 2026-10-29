@@ -19,11 +19,14 @@ import {
   weeksAgo,
 } from "../lib/dates";
 import { RICH_DAY_GEL, money, plural } from "../lib/format";
-import { Avatar, useDesktop } from "../components/common";
+import { Avatar, useDesktop, useNow } from "../components/common";
 import { Icon } from "../components/Icon";
 import { SyncLabel } from "../components/Layout";
 
 type Status = "planned" | "todo" | "done";
+
+/** What the visit brings: the paid amount once entered, otherwise the price list. */
+const amount = (a: AppointmentRow) => a.paid ?? a.price;
 
 function statusOf(a: AppointmentRow): Status {
   if (a.filled_at) return "done";
@@ -62,7 +65,7 @@ function AgendaCard({ a }: { a: AppointmentRow }) {
       <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
         <span style={{ fontFamily: "var(--head)", fontWeight: 700, fontSize: 17 }}>{a.dog_name}</span>
         <span className="small bold">
-          {what(a)} · {money(a.price)}
+          {what(a)} · {money(amount(a))}
         </span>
         {st === "todo" && <span className="fill-btn" style={{ alignSelf: "flex-start", padding: "6px 12px" }}>Заполнить визит</span>}
         {st === "done" && <span className="done-badge" style={{ marginTop: 6 }}>✓ заполнен</span>}
@@ -72,8 +75,11 @@ function AgendaCard({ a }: { a: AppointmentRow }) {
   );
 }
 
-function TodaySummary({ today }: { today: AppointmentRow[] }) {
-  const total = today.reduce((s, a) => s + a.price, 0);
+function TodaySummary({ today, now }: { today: AppointmentRow[]; now: Date }) {
+  // A visit counts as earned once it has ended.
+  const ended = (a: AppointmentRow) => addMinutes(fromLocalStamp(a.starts_at), a.minutes) <= now;
+  const earned = today.filter(ended).reduce((s, a) => s + amount(a), 0);
+  const total = today.reduce((s, a) => s + amount(a), 0);
   return (
     <section className="card">
       <h2>
@@ -88,18 +94,26 @@ function TodaySummary({ today }: { today: AppointmentRow[] }) {
               {a.dog_name} · {hhmm(fromLocalStamp(a.starts_at))}
             </span>
             <span className="small muted">
-              {what(a)} · {money(a.price)}
+              {what(a)} · {money(amount(a))}
             </span>
           </span>
         </Link>
       ))}
       {today.length > 0 && (
-        <div className="row bold" style={{ justifyContent: "space-between", paddingTop: 12, borderTop: "1px solid var(--line-soft)" }}>
-          <span>Заработаю сегодня</span>
-          <span>{money(total)}</span>
+        <div className="stack" style={{ gap: 6, paddingTop: 12, borderTop: "1px solid var(--line-soft)" }}>
+          <div className="row bold" style={{ justifyContent: "space-between" }}>
+            <span>{earned === total ? "Заработала сегодня" : "Уже заработала"}</span>
+            <span>{money(earned)}</span>
+          </div>
+          {earned !== total && (
+            <div className="row bold muted" style={{ justifyContent: "space-between" }}>
+              <span>К концу дня</span>
+              <span>{money(total)}</span>
+            </div>
+          )}
         </div>
       )}
-      {total > RICH_DAY_GEL && (
+      {earned > RICH_DAY_GEL && (
         <div className="joke">
           <Icon name="heart" size={22} />
           <span>Ура, ты сегодня много заработала! Не забудь купить Федусику вкусняшку или кока-колку</span>
@@ -109,7 +123,7 @@ function TodaySummary({ today }: { today: AppointmentRow[] }) {
   );
 }
 
-function Sidebar({ today }: { today: AppointmentRow[] }) {
+function Sidebar({ today, now }: { today: AppointmentRow[]; now: Date }) {
   const unfilled = unfilledAppointments().slice(0, 6);
   const dogs = listDogs();
   const birthdays = dogs
@@ -127,7 +141,7 @@ function Sidebar({ today }: { today: AppointmentRow[] }) {
 
   return (
     <>
-      <TodaySummary today={today} />
+      <TodaySummary today={today} now={now} />
 
       {unfilled.length > 0 && (
         <section className="card">
@@ -180,7 +194,7 @@ export function CalendarPage() {
   const desktop = useDesktop();
   const [week, setWeek] = useState(() => startOfWeek(new Date()));
   const [day, setDay] = useState(() => startOfDay(new Date()));
-  const now = new Date();
+  const now = useNow();
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(week, i));
   const appts = appointmentsBetween(toDateKey(week), toDateKey(addDays(week, 7)));
@@ -254,7 +268,7 @@ export function CalendarPage() {
           ))}
         </div>
 
-        <Sidebar today={today} />
+        <Sidebar today={today} now={now} />
       </>
     );
   }
@@ -304,7 +318,7 @@ export function CalendarPage() {
           </div>
         </section>
         <aside className="side" aria-label="Сводка">
-          <Sidebar today={today} />
+          <Sidebar today={today} now={now} />
         </aside>
       </div>
     </>

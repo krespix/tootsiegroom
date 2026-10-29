@@ -18,7 +18,7 @@ import {
 import { fromLocalStamp, hhmm, slotLabel, toDateKey } from "../lib/dates";
 import { money } from "../lib/format";
 import { askConfirm } from "../lib/dialog";
-import { Avatar, PhotoSlot, useToast } from "../components/common";
+import { Avatar, PhotoSlot, flash, useToast } from "../components/common";
 import { Icon } from "../components/Icon";
 import { ContactLink } from "../components/OwnerRow";
 
@@ -81,9 +81,13 @@ function ApptView({ id }: { id: string }) {
   const previous = dogAppointments(dog.id).find((a) => a.id !== id && a.filled_at && a.starts_at < appt.starts_at);
   const previousProducts = previous ? usedProducts(previous.id) : [];
 
+  // Opened straight from a link there is nothing to go back to, so fall back to the calendar.
+  const close = () => (window.history.state?.idx > 0 ? nav(-1) : nav("/"));
+
   const save = () => {
     const filled = saveVisit(id, { paid: paid === "" ? null : Number(paid), notes, productIds: [...picked] });
-    showToast(filled ? "Визит сохранён" : "Сохранено. Пока пусто — визит не заполнен");
+    flash(filled ? "Визит сохранён" : "Сохранено. Пока пусто — визит не заполнен");
+    close();
   };
 
   const title = `${appt.dog_name} · ${appt.proc_name}${appt.variant_name ? `, ${appt.variant_name.toLowerCase()}` : ""}`;
@@ -92,7 +96,7 @@ function ApptView({ id }: { id: string }) {
     <>
       <header className="page-head">
         <div className="titles" style={{ gap: 8 }}>
-          <button className="btn link row small muted" style={{ alignSelf: "flex-start", gap: 4 }} onClick={() => nav(-1)}>
+          <button className="btn link row small muted" style={{ alignSelf: "flex-start", gap: 4 }} onClick={close}>
             <Icon name="left" size={18} /> Назад
           </button>
           <h1>{title}</h1>
@@ -305,7 +309,7 @@ function ApptView({ id }: { id: string }) {
                 Сохранить визит
               </button>
               <p className="small muted bold" style={{ textAlign: "center" }}>
-                Можно сохранять частями — например, фото «до» сразу, остальное потом.
+                Фото сохраняются сразу. Можно вернуться и дополнить визит позже.
               </p>
             </>
           )}
