@@ -34,9 +34,7 @@ export function Layout() {
     <div className="app">
       <nav className="sidebar" aria-label="Разделы">
         <NavLink to="/" className="logo">
-          <span className="logo-mark">
-            <Icon name="paw" size={24} />
-          </span>
+          <img className="logo-mark" src={`${import.meta.env.BASE_URL}pwa-192x192.png`} alt="" />
           <span className="logo-text">
             Tootsie<span>Groom</span>
           </span>
