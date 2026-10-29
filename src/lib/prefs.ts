@@ -1,5 +1,6 @@
-import { getSetting } from "../db/repo";
-import { EARNING_JOKES } from "./format";
+import { appointmentsBetween, getSetting } from "../db/repo";
+import { addDays, fromLocalStamp, hhmm, toDateKey } from "./dates";
+import { EARNING_JOKES, plural } from "./format";
 
 export type Joke = { min: number; text: string };
 
@@ -48,4 +49,12 @@ export function greeting(now: Date, name: string) {
   const h = now.getHours();
   const hello = h >= 5 && h < 12 ? "Доброе утро" : h >= 12 && h < 17 ? "Добрый день" : h >= 17 && h < 23 ? "Добрый вечер" : "Доброй ночи";
   return name.trim() ? `${hello}, ${name.trim()}!` : `${hello}!`;
+}
+
+/** "Впереди 2 собаки, ближайшая в 15:00." for the greeting and the splash. */
+export function todaySummary(now: Date) {
+  const today = appointmentsBetween(toDateKey(now), toDateKey(addDays(now, 1)));
+  const ahead = today.filter((a) => fromLocalStamp(a.starts_at) > now);
+  if (ahead.length) return `Впереди ${ahead.length} ${plural(ahead.length, "собака", "собаки", "собак")}, ближайшая в ${hhmm(fromLocalStamp(ahead[0].starts_at))}.`;
+  return today.length ? "На сегодня всё — можно отдыхать." : "Сегодня записей нет.";
 }

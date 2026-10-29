@@ -1724,7 +1724,6 @@ textarea.input {
 .swipe-actions {
   position: absolute;
   inset: 0 0 0 auto;
-  width: 176px;
   display: flex;
   gap: 6px;
   padding: 6px;
@@ -1746,9 +1745,19 @@ textarea.input {
   text-decoration: none;
 }
 
-.swipe-btn.fill {
+.swipe-btn {
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.swipe-btn.primary {
   background: var(--pink);
   color: #fff;
+}
+
+.swipe-btn.danger {
+  color: var(--danger);
 }
 
 .swipe-body {
@@ -1785,4 +1794,67 @@ textarea.input {
 
 .day-list.slide-prev {
   animation: slide-prev 0.22s ease-out both;
+}
+
+/* ---------- splash ---------- */
+
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  background: var(--bg);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    opacity 0.45s ease,
+    transform 0.45s ease;
+}
+
+.splash.out {
+  opacity: 0;
+  transform: scale(1.04);
+}
+
+.splash-logo {
+  width: 168px;
+  height: 168px;
+  margin-bottom: 14px;
+  animation: splash-pop 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+.splash-hello {
+  margin: 0;
+  font-family: var(--head);
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--ink);
+  animation: splash-rise 0.5s ease-out 0.25s both;
+}
+
+.splash-day {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--muted);
+  animation: splash-rise 0.5s ease-out 0.4s both;
+}
+
+@keyframes splash-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6) rotate(-8deg);
+  }
+}
+
+@keyframes splash-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
 }

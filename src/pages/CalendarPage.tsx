@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, type ReactNode, type TouchEvent } from "react";
+import { useEffect, useRef, useState, type TouchEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useDbVersion } from "../db/db";
 import { appointmentsBetween, dogsWithUpcoming, lastVisits, listDogs, unfilledAppointments, workHours, type AppointmentRow } from "../db/repo";
 import { freeSlots, type FreeSlot } from "../lib/slots";
 import { canRemind } from "../lib/remind";
 import { RemindButton } from "../components/RemindButton";
+import { Swipe } from "../components/Swipe";
 import {
   addDays,
   addMinutes,
@@ -22,7 +23,7 @@ import {
   weeksAgo,
 } from "../lib/dates";
 import { money, plural } from "../lib/format";
-import { earningJoke, greetName, greeting, jokeLevel } from "../lib/prefs";
+import { earningJoke, greetName, greeting, jokeLevel, todaySummary } from "../lib/prefs";
 import { celebrate } from "../lib/fx";
 import { Avatar, useDesktop, useNow } from "../components/common";
 import { Icon } from "../components/Icon";
@@ -92,83 +93,7 @@ function dayItems(day: Date, appts: AppointmentRow[], now: Date) {
     ...appts.map((a) => ({ kind: "appt" as const, at: a.starts_at.slice(11, 16), a })),
     ...free.map((slot) => ({ kind: "free" as const, at: slot.from, slot })),
   ];
-  return { items: items.sort((x, y) => x.at.localeCompare(y.at)), hasFree: free.length > 0 };
-}
-
-const ACTIONS_W = 176;
-
-/** Phone: swipe a booking left to reveal Заполнить / Перенести. */
-function SwipeCard({ a, children }: { a: AppointmentRow; children: ReactNode }) {
-  const [x, setXState] = useState(0);
-  // Touch events can arrive faster than renders, so the handlers read the offset from a ref.
-  const xRef = useRef(0);
-  const setX = (v: number) => {
-    xRef.current = v;
-    setXState(v);
-  };
-  const [dragging, setDragging] = useState(false);
-  const touch = useRef<{ x: number; y: number; base: number; dir?: "h" | "v" } | null>(null);
-  const open = x <= -ACTIONS_W / 2;
-
-  const onStart = (e: TouchEvent) => {
-    e.stopPropagation(); // the day list must not page while a card is being swiped
-    const t = e.touches[0];
-    touch.current = { x: t.clientX, y: t.clientY, base: xRef.current };
-  };
-  const onMove = (e: TouchEvent) => {
-    const s = touch.current;
-    if (!s) return;
-    const t = e.touches[0];
-    const dx = t.clientX - s.x;
-    const dy = t.clientY - s.y;
-    if (!s.dir) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-      s.dir = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
-    }
-    if (s.dir === "h") {
-      setDragging(true);
-      setX(Math.min(0, Math.max(-ACTIONS_W - 24, s.base + dx)));
-    }
-  };
-  const onEnd = (e: TouchEvent) => {
-    e.stopPropagation();
-    const s = touch.current;
-    touch.current = null;
-    setDragging(false);
-    if (s?.dir === "h") setX(xRef.current < -ACTIONS_W / 3 ? -ACTIONS_W : 0);
-  };
-
-  return (
-    <div className="swipe">
-      <div className="swipe-actions" aria-hidden={!open}>
-        <Link to={`/appt/${a.id}`} className="swipe-btn fill" tabIndex={open ? 0 : -1}>
-          <Icon name="edit" size={18} />
-          Заполнить
-        </Link>
-        <Link to={`/appt/${a.id}?edit=1`} className="swipe-btn" tabIndex={open ? 0 : -1}>
-          <Icon name="clock" size={18} />
-          Перенести
-        </Link>
-      </div>
-      <div
-        className={`swipe-body${dragging ? " dragging" : ""}`}
-        style={{ transform: `translateX(${x}px)` }}
-        onTouchStart={onStart}
-        onTouchMove={onMove}
-        onTouchEnd={onEnd}
-        onClickCapture={(e) => {
-          // While open, a tap closes the card instead of opening the visit.
-          if (xRef.current !== 0) {
-            e.preventDefault();
-            e.stopPropagation();
-            setX(0);
-          }
-        }}
-      >
-        {children}
-      </div>
-    </div>
-  );
+  return { items: items.sort((x, y) => x.at.localeCompare(y.at)), free, hasFree: free.length > 0 };
 }
 
 /** Phone: swipe the day list left or right to move to the next or previous day. */
@@ -216,13 +141,7 @@ function AgendaCard({ a }: { a: AppointmentRow }) {
 
 /** "Добрый день, Наташа! Впереди 2 собаки, ближайшая в 15:00." */
 function Greeting({ now }: { now: Date }) {
-  const today = appointmentsBetween(toDateKey(now), toDateKey(addDays(now, 1)));
-  const ahead = today.filter((a) => fromLocalStamp(a.starts_at) > now);
-  const summary = ahead.length
-    ? `Впереди ${ahead.length} ${plural(ahead.length, "собака", "собаки", "собак")}, ближайшая в ${hhmm(fromLocalStamp(ahead[0].starts_at))}.`
-    : today.length
-      ? "На сегодня всё — можно отдыхать."
-      : "Сегодня записей нет.";
+  const summary = todaySummary(now);
   return (
     <p className="greeting">
       <b>{greeting(now, greetName())}</b>
@@ -438,7 +357,7 @@ export function CalendarPage() {
         </header>
         <SyncLabel />
 
-        <div className="strip" role="group" aria-label="Дни недели">
+        <div className="strip day-list" role="group" aria-label="Дни недели" {...daySwipe}>
           <button className="btn icon" style={{ width: 36, minHeight: 36 }} aria-label="Предыдущая неделя" onClick={() => moveWeek(-1)}>
             <Icon name="left" size={18} />
           </button>
@@ -465,23 +384,41 @@ export function CalendarPage() {
         )}
 
         <div className={`stack day-list${slide ? ` slide-${slide}` : ""}`} key={toDateKey(day)} {...daySwipe}>
-          {list.length === 0 && !agenda.hasFree && (
+          {list.length === 0 && (
             <div className="empty">
-              Записей нет
-              <Link to={`/book?date=${toDateKey(day)}`} className="btn primary">
+              <span>
+                Записей нет
+                {agenda.hasFree && (
+                  <>
+                    <br />
+                    <span className="small">
+                      свободно {agenda.free[0].from}–{agenda.free[agenda.free.length - 1].to}
+                    </span>
+                  </>
+                )}
+              </span>
+              <Link to={`/book?date=${toDateKey(day)}${agenda.hasFree ? `&time=${agenda.free[0].from}` : ""}`} className="btn primary">
                 <Icon name="plus" size={18} /> Записать
               </Link>
             </div>
           )}
-          {agenda.items.map((it) =>
-            it.kind === "appt" ? (
-              <SwipeCard key={it.a.id} a={it.a}>
-                <AgendaCard a={it.a} />
-              </SwipeCard>
-            ) : (
-              <FreeSlotLink key={it.at} day={day} slot={it.slot} />
-            ),
-          )}
+          {list.length > 0 &&
+            agenda.items.map((it) =>
+              it.kind === "appt" ? (
+                <Swipe
+                  key={it.a.id}
+                  onSwipeRight={() => goTo(addDays(day, -1))}
+                  actions={[
+                    { label: "Заполнить", icon: "edit", tone: "primary", to: `/appt/${it.a.id}` },
+                    { label: "Перенести", icon: "clock", to: `/appt/${it.a.id}?edit=1` },
+                  ]}
+                >
+                  <AgendaCard a={it.a} />
+                </Swipe>
+              ) : (
+                <FreeSlotLink key={it.at} day={day} slot={it.slot} />
+              ),
+            )}
         </div>
 
         {sidebar}

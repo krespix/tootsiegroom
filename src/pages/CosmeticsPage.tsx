@@ -6,6 +6,7 @@ import { askConfirm, askText } from "../lib/dialog";
 import { usePhotoUrl } from "../lib/photos";
 import { InlinePanel, PhotoSlot, SearchBox, useDesktop } from "../components/common";
 import { Icon } from "../components/Icon";
+import { Swipe } from "../components/Swipe";
 
 function ProductRow({ p, uses, color, onOpen }: { p: Product; uses: number; color: string; onOpen: () => void }) {
   const url = usePhotoUrl(p.photo);
@@ -111,6 +112,13 @@ export function CosmeticsPage() {
     const name = await askText({ title: "Новый бренд", placeholder: "Например, Гидра", okText: "Добавить" });
     if (name) setBrandFilter(saveBrand(name, PASTELS[brands.length % PASTELS.length]));
   };
+  const removeProduct = async (p: Product) => {
+    const ok = await askConfirm({ title: `Убрать «${p.name}»?`, text: "Из справочника исчезнет, в истории визитов останется.", okText: "Убрать", danger: true });
+    if (ok) {
+      archiveProduct(p.id);
+      if (editing?.id === p.id) setEditing(null);
+    }
+  };
   const linesOf = (brandId: string) => [...new Set(products.filter((p) => p.brand_id === brandId && p.line).map((p) => p.line))];
   // Desktop edits in the side column; the phone opens the form right where it was tapped.
   const editor = editing && (
@@ -201,7 +209,14 @@ export function CosmeticsPage() {
                         <div className="grid-auto" style={{ ["--min" as string]: "260px" }}>
                           {ps.map((p) => (
                             <Fragment key={p.id}>
-                              <ProductRow p={p} uses={usage.get(p.id) ?? 0} color={b.color} onOpen={() => setEditing(p)} />
+                              <Swipe
+                                actions={[
+                                  { label: "Изменить", icon: "edit", tone: "primary", onClick: () => setEditing(p) },
+                                  { label: "Убрать", icon: "x", tone: "danger", onClick: () => void removeProduct(p) },
+                                ]}
+                              >
+                                <ProductRow p={p} uses={usage.get(p.id) ?? 0} color={b.color} onOpen={() => setEditing(p)} />
+                              </Swipe>
                               {!desktop && editing?.id === p.id && <InlinePanel style={{ gridColumn: "1 / -1" }}>{editor}</InlinePanel>}
                             </Fragment>
                           ))}

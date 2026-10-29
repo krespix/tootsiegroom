@@ -5,6 +5,7 @@ import { PASTELS, duration, money } from "../lib/format";
 import { askConfirm } from "../lib/dialog";
 import { DurationFields, InlinePanel, NumberInput, useDesktop } from "../components/common";
 import { Icon } from "../components/Icon";
+import { Swipe } from "../components/Swipe";
 
 const COLOR_NAMES = ["Розовый", "Мятный", "Жёлтый", "Сиреневый", "Голубой"];
 
@@ -132,6 +133,15 @@ export function ProceduresPage() {
   // Desktop edits in the side column; the phone opens the form right where it was tapped.
   const editor = editing && <ProcedureEditor key={editing.id ?? "new"} initial={editing} onDone={() => setEditing(null)} />;
 
+  const openEditor = (p: (typeof procs)[number]) =>
+    setEditing({ ...p, variants: p.variants.map(({ id, name, minutes, price }) => ({ id, name, minutes, price })) });
+  const removeProcedure = async (id: string, name: string) => {
+    const ok = await askConfirm({ title: `Убрать «${name}»?`, text: "Из списка исчезнет, старые записи останутся.", okText: "Убрать", danger: true });
+    if (ok) {
+      archiveProcedure(id);
+      if (editing?.id === id) setEditing(null);
+    }
+  };
   const startNew = () =>
     setEditing({ name: "", description: "", color: PASTELS[procs.length % PASTELS.length], minutes: 60, price: 0, variants: [] });
 
@@ -160,30 +170,37 @@ export function ProceduresPage() {
           {!desktop && editing && !editing.id && <InlinePanel>{editor}</InlinePanel>}
           {procs.map((p) => (
             <Fragment key={p.id}>
-              <button
-                type="button"
-                className={`pick${editing?.id === p.id ? " on" : ""}`}
-                style={{ background: p.color, flexDirection: "column", alignItems: "stretch", gap: 12, padding: "16px 18px", borderRadius: 22 }}
-                onClick={() => setEditing({ ...p, variants: p.variants.map(({ id, name, minutes, price }) => ({ id, name, minutes, price })) })}
+              <Swipe
+                actions={[
+                  { label: "Изменить", icon: "edit", tone: "primary", onClick: () => openEditor(p) },
+                  { label: "Убрать", icon: "x", tone: "danger", onClick: () => void removeProcedure(p.id, p.name) },
+                ]}
               >
-                <span className="stack" style={{ gap: 2 }}>
-                  <span style={{ fontFamily: "var(--head)", fontWeight: 700, fontSize: 18 }}>{p.name}</span>
-                  {p.description && <span className="small bold">{p.description}</span>}
-                </span>
-                <span className="row" style={{ gap: 8 }}>
-                  {p.variants.length === 0 ? (
-                    <span className="tag" style={{ borderStyle: "dashed" }}>
-                      Без подтипов · {duration(p.minutes)} · <b>{money(p.price)}</b>
-                    </span>
-                  ) : (
-                    p.variants.map((v) => (
-                      <span key={v.id} className="tag">
-                        {v.name} · {duration(v.minutes)} · <b>{money(v.price)}</b>
+                <button
+                  type="button"
+                  className={`pick${editing?.id === p.id ? " on" : ""}`}
+                  style={{ background: p.color, flexDirection: "column", alignItems: "stretch", gap: 12, padding: "16px 18px", borderRadius: 22 }}
+                  onClick={() => openEditor(p)}
+                >
+                  <span className="stack" style={{ gap: 2 }}>
+                    <span style={{ fontFamily: "var(--head)", fontWeight: 700, fontSize: 18 }}>{p.name}</span>
+                    {p.description && <span className="small bold">{p.description}</span>}
+                  </span>
+                  <span className="row" style={{ gap: 8 }}>
+                    {p.variants.length === 0 ? (
+                      <span className="tag" style={{ borderStyle: "dashed" }}>
+                        Без подтипов · {duration(p.minutes)} · <b>{money(p.price)}</b>
                       </span>
-                    ))
-                  )}
-                </span>
-              </button>
+                    ) : (
+                      p.variants.map((v) => (
+                        <span key={v.id} className="tag">
+                          {v.name} · {duration(v.minutes)} · <b>{money(v.price)}</b>
+                        </span>
+                      ))
+                    )}
+                  </span>
+                </button>
+              </Swipe>
               {!desktop && editing?.id === p.id && <InlinePanel>{editor}</InlinePanel>}
             </Fragment>
           ))}
