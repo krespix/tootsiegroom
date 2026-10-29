@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useDbVersion } from "../db/db";
 import {
+  appointmentsBetween,
   createAppointment,
   dogOwnersMap,
   emptyDog,
@@ -13,10 +14,12 @@ import {
   listProcedures,
   saveDog,
   saveProcedure,
+  workHours,
   type Procedure,
   type Variant,
 } from "../db/repo";
-import { addMinutes, fromLocalStamp, hhmm, slotLabel, toDateKey } from "../lib/dates";
+import { suggestedStart } from "../lib/slots";
+import { addDays, addMinutes, fromLocalStamp, hhmm, slotLabel, toDateKey } from "../lib/dates";
 import { PASTELS, duration, money } from "../lib/format";
 import { Avatar, DurationFields, NumberInput, SearchBox } from "../components/common";
 import { Icon } from "../components/Icon";
@@ -42,7 +45,9 @@ export function BookPage() {
   const [np, setNp] = useState({ name: "", minutes: 60, price: 0 });
 
   const [date, setDate] = useState(params.get("date") ?? toDateKey(new Date()));
-  const [time, setTime] = useState("10:00");
+  // Until the time is picked by hand it follows the date: the day's first free window, the start of the working day on an empty one.
+  const [pickedTime, setTime] = useState<string | null>(params.get("time"));
+  const time = pickedTime ?? (date ? suggestedStart(date, appointmentsBetween(date, toDateKey(addDays(fromLocalStamp(date), 1))), workHours(), new Date()) : "");
 
   const proc = procs.find((p) => p.id === procId) ?? null;
   const variant = proc?.variants.find((v) => v.id === variantId) ?? null;

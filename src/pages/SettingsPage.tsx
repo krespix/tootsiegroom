@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { exportBytes, replaceDb, write } from "../db/db";
+import { exportBytes, replaceDb, useDbVersion, write } from "../db/db";
+import { DEFAULT_WORK_HOURS, setWorkHours, workHours } from "../db/repo";
 import { toDateKey } from "../lib/dates";
 import { askConfirm } from "../lib/dialog";
 import { DROPBOX_APP_KEY, startAuth } from "../sync/dropbox";
@@ -94,6 +95,64 @@ function DropboxSection() {
   );
 }
 
+function WorkHoursCard() {
+  useDbVersion();
+  const saved = workHours();
+  const [start, setStart] = useState(saved.start);
+  const [end, setEnd] = useState(saved.end);
+  const valid = !!start && !!end && start < end;
+  const save = (h: { start: string; end: string }) => {
+    if (h.start && h.end && h.start < h.end) setWorkHours(h);
+  };
+  return (
+    <section className="card">
+      <h2>Рабочий день</h2>
+      <p className="small muted bold">Календарь показывает свободные окна в эти часы, а новая запись на пустой день начинается с начала рабочего дня.</p>
+      <div className="row" style={{ alignItems: "flex-end" }}>
+        <label className="field" style={{ flex: "1 1 120px" }}>
+          С
+          <input
+            className="input"
+            type="time"
+            step={1800}
+            value={start}
+            onChange={(e) => {
+              setStart(e.target.value);
+              save({ start: e.target.value, end });
+            }}
+          />
+        </label>
+        <label className="field" style={{ flex: "1 1 120px" }}>
+          До
+          <input
+            className="input"
+            type="time"
+            step={1800}
+            value={end}
+            onChange={(e) => {
+              setEnd(e.target.value);
+              save({ start, end: e.target.value });
+            }}
+          />
+        </label>
+        {(saved.start !== DEFAULT_WORK_HOURS.start || saved.end !== DEFAULT_WORK_HOURS.end) && (
+          <button
+            className="btn link"
+            onClick={() => {
+              setStart(DEFAULT_WORK_HOURS.start);
+              setEnd(DEFAULT_WORK_HOURS.end);
+              setWorkHours(DEFAULT_WORK_HOURS);
+            }}
+          >
+            Вернуть 11:00–20:00
+          </button>
+        )}
+      </div>
+      {!valid && <p className="small bold" style={{ color: "var(--danger)" }}>Конец рабочего дня должен быть позже начала</p>}
+    </section>
+  );
+}
+
 export function SettingsPage() {
   const file = useRef<HTMLInputElement>(null);
   const [toast, showToast] = useToast();
@@ -114,6 +173,8 @@ export function SettingsPage() {
       </header>
       <div className="split">
         <div className="grow">
+          <WorkHoursCard />
+
           <section className="card">
             <h2>Синхронизация через Dropbox</h2>
             <p className="small muted bold">

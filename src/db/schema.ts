@@ -169,4 +169,9 @@ export const MIGRATIONS: Migration[] = [
   INSERT INTO owner_contacts (id, owner_id, kind, value, sort)
     SELECT lower(hex(randomblob(16))), id, 'telegram', TRIM(telegram), 1 FROM owners WHERE TRIM(telegram) != '';
   `,
+
+  // v4: app settings such as working hours; synced with the rest of the base.
+  `
+  CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+  `,
 ];

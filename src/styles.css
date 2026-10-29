@@ -797,6 +797,35 @@ textarea.input {
   font-weight: 800;
 }
 
+.free-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 8px 14px;
+  border-radius: 16px;
+  border: 1.5px dashed var(--dash);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.free-slot:hover {
+  border-color: var(--pink);
+  color: var(--tint-fg);
+  background: var(--tint);
+}
+
+.free-slot.compact {
+  min-height: 0;
+  padding: 6px 8px;
+  border-radius: 12px;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
 .strip {
   display: grid;
   grid-template-columns: 36px repeat(7, minmax(0, 1fr)) 36px;

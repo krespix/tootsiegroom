@@ -268,6 +268,24 @@ export function dogsWithUpcoming(at = new Date()): Set<string> {
   return new Set(rows.map((r) => r.dog_id));
 }
 
+// ---------- settings ----------
+
+export type WorkHours = { start: string; end: string };
+export const DEFAULT_WORK_HOURS: WorkHours = { start: "11:00", end: "20:00" };
+
+export function workHours(): WorkHours {
+  const rows = all<{ key: string; value: string }>("SELECT key, value FROM settings WHERE key IN ('work_start', 'work_end')");
+  const m = new Map(rows.map((r) => [r.key, r.value]));
+  return { start: m.get("work_start") ?? DEFAULT_WORK_HOURS.start, end: m.get("work_end") ?? DEFAULT_WORK_HOURS.end };
+}
+
+export function setWorkHours(h: WorkHours) {
+  write(() => {
+    run("INSERT OR REPLACE INTO settings (key, value) VALUES ('work_start', ?)", [h.start]);
+    run("INSERT OR REPLACE INTO settings (key, value) VALUES ('work_end', ?)", [h.end]);
+  });
+}
+
 // ---------- stats ----------
 
 export type StatVisit = {

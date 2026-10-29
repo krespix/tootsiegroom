@@ -1,6 +1,7 @@
 import { Link, useSearchParams } from "react-router-dom";
 import { useDbVersion } from "../db/db";
-import { appointmentsBetween, dogsWithUpcoming, lastVisits, listDogs, unfilledAppointments, type AppointmentRow } from "../db/repo";
+import { appointmentsBetween, dogsWithUpcoming, lastVisits, listDogs, unfilledAppointments, workHours, type AppointmentRow } from "../db/repo";
+import { freeSlots, type FreeSlot } from "../lib/slots";
 import {
   addDays,
   addMinutes,
@@ -50,6 +51,40 @@ function WeekCard({ a }: { a: AppointmentRow }) {
       {st === "done" && <span className="done-badge">✓ заполнен</span>}
     </Link>
   );
+}
+
+/** A free window in the working day; tapping it books that time. */
+function FreeSlotLink({ day, slot, compact }: { day: Date; slot: FreeSlot; compact?: boolean }) {
+  return (
+    <Link to={`/book?date=${toDateKey(day)}&time=${slot.from}`} className={`free-slot${compact ? " compact" : ""}`} aria-label={`Записать на ${dayMonth(day)}, свободно ${slot.from}–${slot.to}`}>
+      {!compact && <Icon name="plus" size={16} />}
+      <span>
+        {compact ? (
+          <>
+            <span style={{ whiteSpace: "nowrap" }}>
+              {slot.from}–{slot.to}
+            </span>
+            <br />
+            свободно
+          </>
+        ) : (
+          <>
+            Свободно {slot.from}–{slot.to}
+          </>
+        )}
+      </span>
+    </Link>
+  );
+}
+
+/** Bookings and free windows of one day in time order. */
+function dayItems(day: Date, appts: AppointmentRow[], now: Date) {
+  const free = freeSlots(toDateKey(day), appts, workHours(), now);
+  const items: ({ kind: "appt"; at: string; a: AppointmentRow } | { kind: "free"; at: string; slot: FreeSlot })[] = [
+    ...appts.map((a) => ({ kind: "appt" as const, at: a.starts_at.slice(11, 16), a })),
+    ...free.map((slot) => ({ kind: "free" as const, at: slot.from, slot })),
+  ];
+  return { items: items.sort((x, y) => x.at.localeCompare(y.at)), hasFree: free.length > 0 };
 }
 
 function AgendaCard({ a }: { a: AppointmentRow }) {
@@ -230,6 +265,7 @@ export function CalendarPage() {
 
   if (!desktop) {
     const list = byDay(day);
+    const agenda = dayItems(day, list, now);
     return (
       <>
         <header className="stack" style={{ gap: 4 }}>
@@ -277,7 +313,7 @@ export function CalendarPage() {
         )}
 
         <div className="stack">
-          {list.length === 0 && (
+          {list.length === 0 && !agenda.hasFree && (
             <div className="empty">
               Записей нет
               <Link to={`/book?date=${toDateKey(day)}`} className="btn primary">
@@ -285,9 +321,7 @@ export function CalendarPage() {
               </Link>
             </div>
           )}
-          {list.map((a) => (
-            <AgendaCard key={a.id} a={a} />
-          ))}
+          {agenda.items.map((it) => (it.kind === "appt" ? <AgendaCard key={it.a.id} a={it.a} /> : <FreeSlotLink key={it.at} day={day} slot={it.slot} />))}
         </div>
 
         {sidebar}
@@ -323,18 +357,19 @@ export function CalendarPage() {
             {days.map((d) => {
               const isToday = sameDay(d, now);
               const on = sameDay(d, day);
+              const col = dayItems(d, byDay(d), now);
               return (
                 <div key={d.toISOString()} className={`day-col${isToday ? " today" : ""}${on ? " selected" : ""}`}>
                   <button type="button" className="day-head" aria-pressed={on} aria-label={`${weekdayLong(d)}, ${dayMonth(d)}`} onClick={() => setDay(d)}>
                     <span className="small bold muted">{weekdayShort(d)}</span>
                     <span className={`day-num${isToday ? " today" : ""}`}>{d.getDate()}</span>
                   </button>
-                  {byDay(d).map((a) => (
-                    <WeekCard key={a.id} a={a} />
-                  ))}
-                  <Link to={`/book?date=${toDateKey(d)}`} className="add-slot" aria-label={`Записать на ${dayMonth(d)}`}>
-                    +
-                  </Link>
+                  {col.items.map((it) => (it.kind === "appt" ? <WeekCard key={it.a.id} a={it.a} /> : <FreeSlotLink key={it.at} day={d} slot={it.slot} compact />))}
+                  {!col.hasFree && (
+                    <Link to={`/book?date=${toDateKey(d)}`} className="add-slot" aria-label={`Записать на ${dayMonth(d)}`}>
+                      +
+                    </Link>
+                  )}
                 </div>
               );
             })}
