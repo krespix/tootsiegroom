@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useDbVersion } from "../db/db";
 import { archiveProduct, listBrands, listProducts, productUsage, renameBrand, saveBrand, saveProduct, type Brand, type Product, type ProductInput } from "../db/repo";
 import { PASTELS, plural } from "../lib/format";
 import { askConfirm, askText } from "../lib/dialog";
 import { usePhotoUrl } from "../lib/photos";
-import { PhotoSlot, SearchBox } from "../components/common";
+import { InlinePanel, PhotoSlot, SearchBox, useDesktop } from "../components/common";
 import { Icon } from "../components/Icon";
 
 function ProductRow({ p, uses, color, onOpen }: { p: Product; uses: number; color: string; onOpen: () => void }) {
@@ -105,12 +105,17 @@ export function CosmeticsPage() {
   const [brandFilter, setBrandFilter] = useState<string>("all");
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<ProductInput | null>(null);
+  const desktop = useDesktop();
 
   const addBrand = async () => {
     const name = await askText({ title: "Новый бренд", placeholder: "Например, Гидра", okText: "Добавить" });
     if (name) setBrandFilter(saveBrand(name, PASTELS[brands.length % PASTELS.length]));
   };
   const linesOf = (brandId: string) => [...new Set(products.filter((p) => p.brand_id === brandId && p.line).map((p) => p.line))];
+  // Desktop edits in the side column; the phone opens the form right where it was tapped.
+  const editor = editing && (
+    <ProductEditor key={editing.id ?? "new"} initial={editing} brands={brands} lines={linesOf} onDone={() => setEditing(null)} />
+  );
   const newProduct = (brandId: string) =>
     setEditing({ brand_id: brandId, line: "", name: "", description: "", photo: null, low_stock: 0 });
 
@@ -188,13 +193,17 @@ export function CosmeticsPage() {
                         + средство
                       </button>
                     </div>
+                    {!desktop && editing && !editing.id && editing.brand_id === b.id && <InlinePanel>{editor}</InlinePanel>}
                     {items.length === 0 && <p className="small muted bold">Пока пусто</p>}
                     {[...groups.entries()].map(([line, ps]) => (
                       <div key={line} className="stack" style={{ gap: 8 }}>
                         {line && <span className="label-caps">Линейка · {line}</span>}
                         <div className="grid-auto" style={{ ["--min" as string]: "260px" }}>
                           {ps.map((p) => (
-                            <ProductRow key={p.id} p={p} uses={usage.get(p.id) ?? 0} color={b.color} onOpen={() => setEditing(p)} />
+                            <Fragment key={p.id}>
+                              <ProductRow p={p} uses={usage.get(p.id) ?? 0} color={b.color} onOpen={() => setEditing(p)} />
+                              {!desktop && editing?.id === p.id && <InlinePanel style={{ gridColumn: "1 / -1" }}>{editor}</InlinePanel>}
+                            </Fragment>
                           ))}
                         </div>
                       </div>
@@ -203,11 +212,7 @@ export function CosmeticsPage() {
                 );
               })}
             </div>
-            {editing && (
-              <aside className="side first-on-mobile">
-                <ProductEditor key={editing.id ?? "new"} initial={editing} brands={brands} lines={linesOf} onDone={() => setEditing(null)} />
-              </aside>
-            )}
+            {desktop && editing && <aside className="side">{editor}</aside>}
           </div>
         </>
       )}

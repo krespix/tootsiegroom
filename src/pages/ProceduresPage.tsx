@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useDbVersion } from "../db/db";
 import { archiveProcedure, listProcedures, saveProcedure, type ProcedureInput, type VariantInput } from "../db/repo";
 import { PASTELS, duration, money } from "../lib/format";
 import { askConfirm } from "../lib/dialog";
-import { DurationFields, NumberInput } from "../components/common";
+import { DurationFields, InlinePanel, NumberInput, useDesktop } from "../components/common";
 import { Icon } from "../components/Icon";
 
 const COLOR_NAMES = ["Розовый", "Мятный", "Жёлтый", "Сиреневый", "Голубой"];
@@ -128,6 +128,9 @@ export function ProceduresPage() {
   useDbVersion();
   const procs = listProcedures();
   const [editing, setEditing] = useState<ProcedureInput | null>(null);
+  const desktop = useDesktop();
+  // Desktop edits in the side column; the phone opens the form right where it was tapped.
+  const editor = editing && <ProcedureEditor key={editing.id ?? "new"} initial={editing} onDone={() => setEditing(null)} />;
 
   const startNew = () =>
     setEditing({ name: "", description: "", color: PASTELS[procs.length % PASTELS.length], minutes: 60, price: 0, variants: [] });
@@ -154,37 +157,40 @@ export function ProceduresPage() {
               </button>
             </div>
           )}
+          {!desktop && editing && !editing.id && <InlinePanel>{editor}</InlinePanel>}
           {procs.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              className={`pick${editing?.id === p.id ? " on" : ""}`}
-              style={{ background: p.color, flexDirection: "column", alignItems: "stretch", gap: 12, padding: "16px 18px", borderRadius: 22 }}
-              onClick={() => setEditing({ ...p, variants: p.variants.map(({ id, name, minutes, price }) => ({ id, name, minutes, price })) })}
-            >
-              <span className="stack" style={{ gap: 2 }}>
-                <span style={{ fontFamily: "var(--head)", fontWeight: 700, fontSize: 18 }}>{p.name}</span>
-                {p.description && <span className="small bold">{p.description}</span>}
-              </span>
-              <span className="row" style={{ gap: 8 }}>
-                {p.variants.length === 0 ? (
-                  <span className="tag" style={{ borderStyle: "dashed" }}>
-                    Без подтипов · {duration(p.minutes)} · <b>{money(p.price)}</b>
-                  </span>
-                ) : (
-                  p.variants.map((v) => (
-                    <span key={v.id} className="tag">
-                      {v.name} · {duration(v.minutes)} · <b>{money(v.price)}</b>
+            <Fragment key={p.id}>
+              <button
+                type="button"
+                className={`pick${editing?.id === p.id ? " on" : ""}`}
+                style={{ background: p.color, flexDirection: "column", alignItems: "stretch", gap: 12, padding: "16px 18px", borderRadius: 22 }}
+                onClick={() => setEditing({ ...p, variants: p.variants.map(({ id, name, minutes, price }) => ({ id, name, minutes, price })) })}
+              >
+                <span className="stack" style={{ gap: 2 }}>
+                  <span style={{ fontFamily: "var(--head)", fontWeight: 700, fontSize: 18 }}>{p.name}</span>
+                  {p.description && <span className="small bold">{p.description}</span>}
+                </span>
+                <span className="row" style={{ gap: 8 }}>
+                  {p.variants.length === 0 ? (
+                    <span className="tag" style={{ borderStyle: "dashed" }}>
+                      Без подтипов · {duration(p.minutes)} · <b>{money(p.price)}</b>
                     </span>
-                  ))
-                )}
-              </span>
-            </button>
+                  ) : (
+                    p.variants.map((v) => (
+                      <span key={v.id} className="tag">
+                        {v.name} · {duration(v.minutes)} · <b>{money(v.price)}</b>
+                      </span>
+                    ))
+                  )}
+                </span>
+              </button>
+              {!desktop && editing?.id === p.id && <InlinePanel>{editor}</InlinePanel>}
+            </Fragment>
           ))}
         </section>
-        {editing && (
-          <aside className="side first-on-mobile" style={{ flexBasis: 380 }}>
-            <ProcedureEditor key={editing.id ?? "new"} initial={editing} onDone={() => setEditing(null)} />
+        {desktop && editing && (
+          <aside className="side" style={{ flexBasis: 380 }}>
+            {editor}
           </aside>
         )}
       </div>

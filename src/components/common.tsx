@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type InputHTMLAttributes, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type InputHTMLAttributes, type ReactNode } from "react";
 import { Icon } from "./Icon";
 import { askConfirm } from "../lib/dialog";
 import { initial, pastelFor } from "../lib/format";
@@ -233,6 +233,22 @@ export function useToast(): [ReactNode, (msg: string) => void] {
     return () => window.clearTimeout(t);
   }, [msg]);
   return [msg ? <Toast>{msg}</Toast> : null, setMsg];
+}
+
+/** Wrapper for a form opened in place (phone): scrolls so the tapped item sits on top with the form under it. */
+export function InlinePanel({ children, style }: { children: ReactNode; style?: CSSProperties }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    const anchor = el?.previousElementSibling ?? el;
+    if (anchor instanceof HTMLElement) anchor.style.scrollMarginTop = "16px";
+    anchor?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+  return (
+    <div ref={ref} style={style}>
+      {children}
+    </div>
+  );
 }
 
 /** Current local time, refreshed every minute so time-dependent views stay correct while open. */
