@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { registerSW } from "virtual:pwa-register";
 import { HashRouter, Route, Routes } from "react-router-dom";
 import "./styles.css";
 import { openDb } from "./db/db";
@@ -13,6 +14,18 @@ import { ApptPage } from "./pages/ApptPage";
 import { CosmeticsPage } from "./pages/CosmeticsPage";
 import { ProceduresPage } from "./pages/ProceduresPage";
 import { SettingsPage } from "./pages/SettingsPage";
+
+// A home-screen app can stay in memory for days, so look for a new version
+// whenever it comes to the foreground; autoUpdate reloads once it is installed.
+registerSW({
+  immediate: true,
+  onRegisteredSW(_url, reg) {
+    if (!reg) return;
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && navigator.onLine) void reg.update();
+    });
+  },
+});
 
 async function start() {
   await openDb();

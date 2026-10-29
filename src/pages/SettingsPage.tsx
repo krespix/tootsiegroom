@@ -155,6 +155,9 @@ export function SettingsPage() {
               />
             </div>
           </section>
+          <p className="tiny bold muted" style={{ textAlign: "center" }}>
+            Версия от {new Date(__BUILD__).toLocaleString("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}
+          </p>
         </div>
       </div>
       {toast}
