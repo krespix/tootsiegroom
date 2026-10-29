@@ -47,3 +47,28 @@ export function freeSlots(dayKey: string, booked: Booked[], work: WorkHours, now
 export function suggestedStart(dayKey: string, booked: Booked[], work: WorkHours, now: Date) {
   return freeSlots(dayKey, booked, work, now)[0]?.from ?? work.start;
 }
+
+type Named = Booked & { id: string; dog_name: string };
+
+/** Bookings of the day that overlap [startsAt, startsAt + minutes), other than `exceptId`. */
+export function clashes<T extends Named>(dayBooked: T[], startsAt: string, minutes: number, exceptId?: string): T[] {
+  const from = fromLocalStamp(startsAt).getTime();
+  const to = from + minutes * 60_000;
+  return dayBooked.filter((b) => {
+    if (b.id === exceptId) return false;
+    const s = fromLocalStamp(b.starts_at).getTime();
+    return s < to && s + b.minutes * 60_000 > from;
+  });
+}
+
+/** "Ричи 14:00–15:00, Кекс 14:30–15:30" */
+export function clashLabel(list: Named[]) {
+  return list
+    .map((b) => {
+      const s = fromLocalStamp(b.starts_at);
+      const e = new Date(s.getTime() + b.minutes * 60_000);
+      const t = (d: Date) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+      return `${b.dog_name} ${t(s)}–${t(e)}`;
+    })
+    .join(", ");
+}

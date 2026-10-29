@@ -797,6 +797,17 @@ textarea.input {
   font-weight: 800;
 }
 
+.warn-note {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--amber-bg);
+  color: var(--amber-fg);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
 .free-slot {
   display: flex;
   align-items: center;

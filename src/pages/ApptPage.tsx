@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useDbVersion } from "../db/db";
 import {
+  appointmentsBetween,
   cancelAppointment,
   changeAppointmentProcedure,
   dogAppointments,
@@ -17,7 +18,8 @@ import {
   tagsOf,
   usedProducts,
 } from "../db/repo";
-import { fromLocalStamp, hhmm, slotLabel, toDateKey } from "../lib/dates";
+import { addDays, fromLocalStamp, hhmm, slotLabel, toDateKey } from "../lib/dates";
+import { clashLabel, clashes } from "../lib/slots";
 import { duration, money } from "../lib/format";
 import { askConfirm } from "../lib/dialog";
 import { Avatar, PhotoSlot, Thumb, flash, useToast } from "../components/common";
@@ -66,6 +68,13 @@ function ApptView({ id }: { id: string }) {
   const variant = proc?.variants.find((v) => v.id === variantId) ?? null;
   const needVariant = !!proc && proc.variants.length > 0 && !variant;
   const procChanged = procId !== appt.procedure_id || variantId !== appt.variant_id;
+  // Past visits keep their price unless the procedure is switched; from today on the price list is re-read.
+  const rereadProc = !!proc && (procChanged || newDate >= toDateKey(new Date()));
+  const newMinutes = rereadProc ? (variant?.minutes ?? proc!.minutes) : appt.minutes;
+  const conflicts =
+    editing && newDate && newTime && !needVariant
+      ? clashes(appointmentsBetween(newDate, toDateKey(addDays(fromLocalStamp(newDate), 1))), `${newDate}T${newTime}`, newMinutes, id)
+      : [];
 
   const start = fromLocalStamp(appt.starts_at);
   const past = start <= new Date();
@@ -208,15 +217,24 @@ function ApptView({ id }: { id: string }) {
               </div>
             </>
           )}
+          {conflicts.length > 0 && <p className="warn-note">В это время уже записаны: {clashLabel(conflicts)}</p>}
           <div className="row">
             <button
               className="btn primary"
               disabled={needVariant || !newDate || !newTime}
-              onClick={() => {
+              onClick={async () => {
+                if (conflicts.length) {
+                  const ok = await askConfirm({
+                    title: "Это время уже занято",
+                    text: `${clashLabel(conflicts)}. Сохранить всё равно?`,
+                    okText: "Всё равно сохранить",
+                    cancelText: "Выбрать другое время",
+                  });
+                  if (!ok) return;
+                }
                 const startsAt = `${newDate}T${newTime}`;
                 if (startsAt !== appt.starts_at) rescheduleAppointment(id, startsAt);
-                // Past visits keep their price unless the procedure is switched; from today on the price list is re-read.
-                if (proc && (procChanged || newDate >= toDateKey(new Date()))) {
+                if (rereadProc && proc) {
                   changeAppointmentProcedure(id, proc, variant);
                   if (paid === String(appt.price)) setPaid(String(variant?.price ?? proc.price));
                 }

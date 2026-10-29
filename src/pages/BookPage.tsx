@@ -18,7 +18,8 @@ import {
   type Procedure,
   type Variant,
 } from "../db/repo";
-import { suggestedStart } from "../lib/slots";
+import { clashLabel, clashes, suggestedStart } from "../lib/slots";
+import { askConfirm } from "../lib/dialog";
 import { addDays, addMinutes, fromLocalStamp, hhmm, slotLabel, toDateKey } from "../lib/dates";
 import { PASTELS, duration, money } from "../lib/format";
 import { Avatar, DurationFields, NumberInput, SearchBox } from "../components/common";
@@ -47,7 +48,8 @@ export function BookPage() {
   const [date, setDate] = useState(params.get("date") ?? toDateKey(new Date()));
   // Until the time is picked by hand it follows the date: the day's first free window, the start of the working day on an empty one.
   const [pickedTime, setTime] = useState<string | null>(params.get("time"));
-  const time = pickedTime ?? (date ? suggestedStart(date, appointmentsBetween(date, toDateKey(addDays(fromLocalStamp(date), 1))), workHours(), new Date()) : "");
+  const dayAppts = date ? appointmentsBetween(date, toDateKey(addDays(fromLocalStamp(date), 1))) : [];
+  const time = pickedTime ?? (date ? suggestedStart(date, dayAppts, workHours(), new Date()) : "");
 
   const proc = procs.find((p) => p.id === procId) ?? null;
   const variant = proc?.variants.find((v) => v.id === variantId) ?? null;
@@ -68,8 +70,20 @@ export function BookPage() {
     (d) => !q || [d.name, d.breed, ...(ownerMap.get(d.id) ?? []).map(ownerSearchText)].join(" ").toLowerCase().includes(q),
   );
 
-  const save = () => {
+  // Overlaps are allowed (two dogs of one owner), but rare enough to ask first.
+  const conflicts = date && time && hasProc && !needVariant ? clashes(dayAppts, startsAt, minutes) : [];
+
+  const save = async () => {
     if (!canSave) return;
+    if (conflicts.length) {
+      const ok = await askConfirm({
+        title: "Это время уже занято",
+        text: `${clashLabel(conflicts)}. Записать всё равно?`,
+        okText: "Всё равно записать",
+        cancelText: "Выбрать другое время",
+      });
+      if (!ok) return;
+    }
     const finalDogId = newDog ? saveDog({ ...emptyDog(), ...nd, name: nd.name.trim() }, { owners: [ndOwner] }) : dogId!;
     let finalProc: Procedure = proc!;
     let finalVariant: Variant | null = variant;
@@ -267,6 +281,7 @@ export function BookPage() {
                 {needVariant ? "выбери подтип" : hasProc ? money(price) : "—"}
               </dd>
             </dl>
+            {conflicts.length > 0 && <p className="warn-note">В это время уже записаны: {clashLabel(conflicts)}</p>}
             <button className="btn primary big wide" disabled={!canSave} onClick={save}>
               {needVariant ? "Выбери подтип процедуры" : "Записать"}
             </button>
