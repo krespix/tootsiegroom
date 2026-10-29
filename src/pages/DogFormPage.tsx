@@ -16,13 +16,14 @@ import {
 } from "../db/repo";
 import { askConfirm } from "../lib/dialog";
 import { plural } from "../lib/format";
-import { PhotoSlot } from "../components/common";
+import { PhotoSlot, flash, useDesktop } from "../components/common";
 import { OwnersEditor, Suggest, TagEditor } from "../components/pickers";
 import { Icon } from "../components/Icon";
 
 export function DogFormPage() {
   const { id } = useParams();
   const nav = useNavigate();
+  const desktop = useDesktop();
   const existing = id ? getDog(id) : undefined;
   const [d, setD] = useState<DogInput>(() => existing ?? emptyDog());
   const [tags, setTags] = useState<string[]>(() => (existing ? tagsOf(existing.id).map((t) => t.name) : []));
@@ -36,7 +37,11 @@ export function DogFormPage() {
   const save = () => {
     if (!d.name.trim()) return;
     const savedId = saveDog({ ...d, name: d.name.trim() }, { tags, owners });
-    nav(`/dogs/${savedId}`, { replace: true });
+    // On the phone a new dog lands back on the list; desktop shows list and card side by side.
+    if (!existing && !desktop) {
+      flash("Собака добавлена");
+      nav("/dogs", { replace: true });
+    } else nav(`/dogs/${savedId}`, { replace: true });
   };
 
   const remove = async () => {
