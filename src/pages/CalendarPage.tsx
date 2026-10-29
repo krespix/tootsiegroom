@@ -232,20 +232,20 @@ export function CalendarPage() {
     const list = byDay(day);
     return (
       <>
-        <header className="page-head" style={{ alignItems: "center", flexWrap: "nowrap" }}>
-          <div className="titles">
-            <span className="tiny bold muted">
-              {weekdayLong(day)}, {dayMonth(day)}
-            </span>
-            <h1>{sameDay(day, now) ? "Сегодня" : weekdayShort(day) + ", " + day.getDate()}</h1>
-          </div>
-          <div className="row" style={{ flexWrap: "nowrap", gap: 8 }}>
-            <Link to="/stats" className="btn">
-              <Icon name="chart" size={18} /> Статистика
-            </Link>
-            <Link to="/settings" className="btn icon" aria-label="Настройки">
-              <Icon name="settings" />
-            </Link>
+        <header className="stack" style={{ gap: 4 }}>
+          <span className="tiny bold muted">
+            {weekdayLong(day)}, {dayMonth(day)}
+          </span>
+          <div className="row" style={{ flexWrap: "nowrap", justifyContent: "space-between" }}>
+            <h1 style={{ minWidth: 0 }}>{sameDay(day, now) ? "Сегодня" : weekdayShort(day) + ", " + day.getDate()}</h1>
+            <div className="row" style={{ flexWrap: "nowrap", gap: 8, flex: "none" }}>
+              <Link to="/stats" className="btn">
+                <Icon name="chart" size={18} /> Статистика
+              </Link>
+              <Link to="/settings" className="btn icon" aria-label="Настройки">
+                <Icon name="settings" />
+              </Link>
+            </div>
           </div>
         </header>
         <SyncLabel />
