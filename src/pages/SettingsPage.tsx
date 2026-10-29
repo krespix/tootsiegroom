@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { exportBytes, replaceDb, useDbVersion, write } from "../db/db";
 import { DEFAULT_WORK_HOURS, getSetting, setSetting, setWorkHours, workHours } from "../db/repo";
 import { DEFAULT_REMIND_TEMPLATE, REMIND_FIELDS, REMIND_TEMPLATE_KEY, fillTemplate } from "../lib/remind";
@@ -14,6 +14,7 @@ import { DROPBOX_APP_KEY, folderUsage, startAuth } from "../sync/dropbox";
 import { connectDropbox, disconnectDropbox, syncNow, useSyncState } from "../sync/sync";
 import { SyncLabel } from "../components/Layout";
 import { NumberInput, useToast } from "../components/common";
+import { Icon } from "../components/Icon";
 
 function DropboxSection() {
   const sync = useSyncState();
@@ -102,6 +103,43 @@ function DropboxSection() {
   );
 }
 
+/** Which settings blocks are open is a per-device convenience. */
+const openKey = (id: string) => `settings-open:${id}`;
+const readOpen = (id: string) => {
+  try {
+    return localStorage.getItem(openKey(id)) === "1";
+  } catch {
+    return false;
+  }
+};
+
+/** A settings block that folds to its title and a one-line hint of what is inside. */
+function Card({ id, title, hint, children }: { id: string; title: string; hint?: ReactNode; children: ReactNode }) {
+  const [open, setOpen] = useState(() => readOpen(id));
+  const toggle = () => {
+    setOpen(!open);
+    try {
+      localStorage.setItem(openKey(id), open ? "0" : "1");
+    } catch {
+      // remembering is optional
+    }
+  };
+  return (
+    <section className={`card fold${open ? " open" : ""}`} id={id}>
+      <h2>
+        <button type="button" className="fold-head" aria-expanded={open} onClick={toggle}>
+          <span className="fold-title">
+            {title}
+            {!open && hint && <span className="fold-hint">{hint}</span>}
+          </span>
+          <Icon name="right" size={18} />
+        </button>
+      </h2>
+      {open && children}
+    </section>
+  );
+}
+
 function WorkHoursCard() {
   useDbVersion();
   const saved = workHours();
@@ -112,8 +150,7 @@ function WorkHoursCard() {
     if (h.start && h.end && h.start < h.end) setWorkHours(h);
   };
   return (
-    <section className="card">
-      <h2>Рабочий день</h2>
+    <Card id="work" title="Рабочий день" hint={`${saved.start}–${saved.end}`}>
       <p className="small muted bold">Календарь показывает свободные окна в эти часы, а новая запись на пустой день начинается с начала рабочего дня.</p>
       <div className="row" style={{ alignItems: "flex-end" }}>
         <label className="field" style={{ flex: "1 1 120px" }}>
@@ -156,7 +193,7 @@ function WorkHoursCard() {
         )}
       </div>
       {!valid && <p className="small bold" style={{ color: "var(--danger)" }}>Конец рабочего дня должен быть позже начала</p>}
-    </section>
+    </Card>
   );
 }
 
@@ -186,8 +223,7 @@ function RemindTemplateCard() {
   const example = fillTemplate(text || DEFAULT_REMIND_TEMPLATE, { owner: "Ольга", dog: "Тутси", when: "завтра", time: "11:00", procedure: "комплекс (мини)" });
 
   return (
-    <section className="card">
-      <h2>Напоминание хозяину</h2>
+    <Card id="remind" title="Напоминание хозяину" hint={saved.length > 42 ? `${saved.slice(0, 42)}…` : saved}>
       <p className="small muted bold">Этот текст копируется кнопкой «Напомнить хозяину». Слова в фигурных скобках заменятся на данные записи.</p>
       <label className="field">
         Шаблон
@@ -216,7 +252,7 @@ function RemindTemplateCard() {
           Вернуть исходный текст
         </button>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -225,8 +261,7 @@ function LookCard() {
   const [name, setName] = useState(greetName());
   const animate = fxOn();
   return (
-    <section className="card">
-      <h2>Приветствие и анимации</h2>
+    <Card id="look" title="Приветствие и анимации" hint={`${greetName() || "без имени"} · анимации ${animate ? "включены" : "выключены"}`}>
       <label className="field">
         Имя для приветствия
         <input className="input" value={name} placeholder="Например, Наташа" onChange={(e) => setName(e.target.value)} onBlur={() => setSetting("greet_name", name.trim() || null)} />
@@ -236,7 +271,7 @@ function LookCard() {
         <input type="checkbox" checked={animate} onChange={(e) => setSetting("fx_off", e.target.checked ? null : "1")} style={{ width: 22, height: 22, accentColor: "var(--pink)" }} />
         Лапки и анимации
       </label>
-    </section>
+    </Card>
   );
 }
 
@@ -253,8 +288,7 @@ function JokesCard() {
   const patch = (i: number, p: Partial<Joke>) => save(list.map((j, k) => (k === i ? { ...j, ...p } : j)));
 
   return (
-    <section className="card">
-      <h2>Шутки про заработок</h2>
+    <Card id="jokes" title="Шутки про заработок" hint={on ? `${list.length} ${plural(list.length, "шутка", "шутки", "шуток")}` : "выключены"}>
       <label className="row bold" style={{ gap: 10, flexWrap: "nowrap", cursor: "pointer" }}>
         <input type="checkbox" checked={on} onChange={(e) => setSetting("jokes_off", e.target.checked ? null : "1")} style={{ width: 22, height: 22, accentColor: "var(--pink)" }} />
         Показывать шутки
@@ -291,7 +325,7 @@ function JokesCard() {
           </div>
         </>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -314,8 +348,7 @@ function StorageCard() {
   }, [sync.connected]);
 
   return (
-    <section className="card">
-      <h2>Место</h2>
+    <Card id="storage" title="Место" hint={`база ${bytesLabel(dbBytes)}${local ? ` · фото ${bytesLabel(local.bytes)}` : ""}`}>
       <div className="stack" style={{ gap: 6 }}>
         <span className="row bold" style={{ justifyContent: "space-between" }}>
           <span>База</span>
@@ -344,7 +377,7 @@ function StorageCard() {
           </p>
         </>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -353,19 +386,17 @@ function BadgeCard() {
   const [permission, setPermission] = useState(() => ("Notification" in window ? Notification.permission : "unsupported"));
   if (!badgeSupported())
     return (
-      <section className="card">
-        <h2>Цифра на иконке</h2>
+      <Card id="badge" title="Цифра на иконке" hint="недоступно здесь">
         <p className="small muted bold">
           {installed()
             ? "Этот телефон или браузер не умеет показывать цифру на иконке."
             : "Цифра на иконке работает, когда приложение добавлено на экран «Домой». Открой его оттуда и вернись сюда."}
         </p>
-      </section>
+      </Card>
     );
   const on = badgeOn();
   return (
-    <section className="card">
-      <h2>Цифра на иконке</h2>
+    <Card id="badge" title="Цифра на иконке" hint={permission !== "granted" ? "не включена" : on ? "включена" : "выключена"}>
       <p className="small muted bold">На иконке приложения — сколько прошедших визитов ещё не заполнено.</p>
       {permission !== "granted" && permission !== "unsupported" ? (
         <>
@@ -402,14 +433,13 @@ function BadgeCard() {
           Показывать цифру
         </label>
       )}
-    </section>
+    </Card>
   );
 }
 
 function HistoryCard() {
   return (
-    <section className="card" id="history">
-      <h2>История обновлений</h2>
+    <Card id="history" title="История обновлений" hint={`${CHANGES[0].title} · ${CHANGES[0].date}`}>
       {CHANGES.map((c, i) => (
         <details key={c.id} className="history" open={i === 0}>
           <summary>
@@ -423,11 +453,12 @@ function HistoryCard() {
           </ul>
         </details>
       ))}
-    </section>
+    </Card>
   );
 }
 
 export function SettingsPage() {
+  const sync = useSyncState();
   const file = useRef<HTMLInputElement>(null);
   const [toast, showToast] = useToast();
 
@@ -457,16 +488,14 @@ export function SettingsPage() {
 
           <BadgeCard />
 
-          <section className="card">
-            <h2>Синхронизация через Dropbox</h2>
+          <Card id="dropbox" title="Синхронизация через Dropbox" hint={sync.connected ? "подключён" : "не подключён"}>
             <p className="small muted bold">
               База и фото хранятся на устройстве и копируются в папку приложения в Dropbox. Подключи один и тот же Dropbox на маке и на телефоне.
             </p>
             <DropboxSection />
-          </section>
+          </Card>
 
-          <section className="card">
-            <h2>Резервная копия</h2>
+          <Card id="backup" title="Резервная копия" hint="скачать или восстановить базу">
             <p className="small muted bold">Файл базы целиком. Фото в него не входят — они лежат в Dropbox.</p>
             <div className="row">
               <button className="btn" onClick={downloadBackup}>
@@ -497,7 +526,7 @@ export function SettingsPage() {
                 }}
               />
             </div>
-          </section>
+          </Card>
 
           <StorageCard />
 

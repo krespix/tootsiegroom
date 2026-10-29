@@ -1934,3 +1934,57 @@ textarea.input {
 .whats-new:focus-visible {
   outline: none;
 }
+
+/* ---------- foldable settings blocks ---------- */
+
+.fold h2 {
+  margin: 0;
+}
+
+.fold-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  margin: -8px 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fold-head svg {
+  flex: none;
+  color: var(--muted);
+  transition: transform 0.2s ease;
+}
+
+.fold.open .fold-head svg {
+  transform: rotate(90deg);
+}
+
+.fold-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.fold-hint {
+  font-family: var(--body);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fold.open > :not(h2) {
+  animation: page-in 0.2s ease-out both;
+}
