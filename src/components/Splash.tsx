@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useReturn } from "../lib/session";
 import { fxEnabled } from "../lib/fx";
-import { greetName, greeting, todaySummary } from "../lib/prefs";
+import { greetName, greeting, splashOn, todaySummary } from "../lib/prefs";
 
 const AWAY_MS = 6 * 3_600_000;
+const wanted = (away: number) => fxEnabled() && splashOn() && away > AWAY_MS;
 
 /**
  * Logo, greeting and the day. Shows when the installed app is opened again after
@@ -12,7 +13,7 @@ const AWAY_MS = 6 * 3_600_000;
  */
 export function Splash() {
   const back = useReturn();
-  const [phase, setPhase] = useState<"in" | "out" | "gone">(() => (fxEnabled() && back.away > AWAY_MS ? "in" : "gone"));
+  const [phase, setPhase] = useState<"in" | "out" | "gone">(() => (wanted(back.away) ? "in" : "gone"));
   const [now, setNow] = useState(() => new Date());
 
   // Coming back to the foreground after a long time shows it again.
@@ -20,7 +21,7 @@ export function Splash() {
   useEffect(() => {
     if (back.round === round.current) return;
     round.current = back.round;
-    if (fxEnabled() && back.away > AWAY_MS) {
+    if (wanted(back.away)) {
       setNow(new Date());
       setPhase("in");
     }

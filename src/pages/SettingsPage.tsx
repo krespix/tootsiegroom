@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import { exportBytes, replaceDb, useDbVersion, write } from "../db/db";
 import { DEFAULT_WORK_HOURS, getSetting, setSetting, setWorkHours, workHours } from "../db/repo";
 import { DEFAULT_REMIND_TEMPLATE, REMIND_FIELDS, REMIND_TEMPLATE_KEY, fillTemplate } from "../lib/remind";
-import { DEFAULT_JOKES, fxOn, greetName, greeting, jokes, jokesOn, type Joke } from "../lib/prefs";
+import { DEFAULT_JOKES, fxOn, greetName, greeting, jokes, jokesOn, splashOn, type Joke } from "../lib/prefs";
 import { toDateKey } from "../lib/dates";
 import { bytesLabel, plural } from "../lib/format";
 import { localPhotoUsage } from "../lib/photos";
@@ -260,8 +260,9 @@ function LookCard() {
   useDbVersion();
   const [name, setName] = useState(greetName());
   const animate = fxOn();
+  const splash = splashOn();
   return (
-    <Card id="look" title="Приветствие и анимации" hint={`${greetName() || "без имени"} · анимации ${animate ? "включены" : "выключены"}`}>
+    <Card id="look" title="Приветствие и анимации" hint={`${greetName() || "без имени"} · анимации ${animate ? "включены" : "выключены"}${animate ? ` · заставка ${splash ? "включена" : "выключена"}` : ""}`}>
       <label className="field">
         Имя для приветствия
         <input className="input" value={name} placeholder="Например, Наташа" onChange={(e) => setName(e.target.value)} onBlur={() => setSetting("greet_name", name.trim() || null)} />
@@ -270,6 +271,10 @@ function LookCard() {
       <label className="row bold" style={{ gap: 10, flexWrap: "nowrap", cursor: "pointer" }}>
         <input type="checkbox" checked={animate} onChange={(e) => setSetting("fx_off", e.target.checked ? null : "1")} style={{ width: 22, height: 22, accentColor: "var(--pink)" }} />
         Лапки и анимации
+      </label>
+      <label className={`row bold${animate ? "" : " muted"}`} style={{ gap: 10, flexWrap: "nowrap", cursor: animate ? "pointer" : "default" }}>
+        <input type="checkbox" checked={animate && splash} disabled={!animate} onChange={(e) => setSetting("splash_off", e.target.checked ? null : "1")} style={{ width: 22, height: 22, accentColor: "var(--pink)" }} />
+        Заставка при запуске{animate ? "" : " (нужны анимации)"}
       </label>
     </Card>
   );

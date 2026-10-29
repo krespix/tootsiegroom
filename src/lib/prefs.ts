@@ -44,6 +44,7 @@ export function earningJoke(earned: number) {
 
 export const greetName = () => getSetting("greet_name") ?? "";
 export const fxOn = () => getSetting("fx_off") !== "1";
+export const splashOn = () => getSetting("splash_off") !== "1";
 
 export function greeting(now: Date, name: string) {
   const h = now.getHours();
