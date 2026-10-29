@@ -3,10 +3,12 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useDbVersion } from "../db/db";
 import {
   cancelAppointment,
+  changeAppointmentProcedure,
   dogAppointments,
   getAppointment,
   getDog,
   listBrands,
+  listProcedures,
   listProducts,
   ownersOf,
   rescheduleAppointment,
@@ -16,7 +18,7 @@ import {
   usedProducts,
 } from "../db/repo";
 import { fromLocalStamp, hhmm, slotLabel, toDateKey } from "../lib/dates";
-import { money } from "../lib/format";
+import { duration, money } from "../lib/format";
 import { askConfirm } from "../lib/dialog";
 import { Avatar, PhotoSlot, flash, useToast } from "../components/common";
 import { Icon } from "../components/Icon";
@@ -54,9 +56,16 @@ function ApptView({ id }: { id: string }) {
   const [notes, setNotes] = useState(appt.notes);
   const [picked, setPicked] = useState<Set<string>>(() => new Set(usedProducts(id).map((p) => p.id)));
   const [brandId, setBrandId] = useState<string | null>(brands[0]?.id ?? null);
-  const [moving, setMoving] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [newDate, setNewDate] = useState(appt.starts_at.slice(0, 10));
   const [newTime, setNewTime] = useState(appt.starts_at.slice(11, 16));
+  const procs = listProcedures();
+  const [procId, setProcId] = useState(appt.procedure_id);
+  const [variantId, setVariantId] = useState(appt.variant_id);
+  const proc = procs.find((p) => p.id === procId) ?? null;
+  const variant = proc?.variants.find((v) => v.id === variantId) ?? null;
+  const needVariant = !!proc && proc.variants.length > 0 && !variant;
+  const procChanged = procId !== appt.procedure_id || variantId !== appt.variant_id;
 
   const start = fromLocalStamp(appt.starts_at);
   const past = start <= new Date();
@@ -116,8 +125,8 @@ function ApptView({ id }: { id: string }) {
         </div>
         {!cancelled && (
           <div className="row">
-            <button className="btn" onClick={() => setMoving(!moving)}>
-              Перенести
+            <button className="btn" onClick={() => setEditing(!editing)}>
+              <Icon name="edit" size={16} /> Изменить
             </button>
             <button
               className="btn danger"
@@ -140,9 +149,9 @@ function ApptView({ id }: { id: string }) {
         )}
       </header>
 
-      {moving && (
+      {editing && (
         <section className="card">
-          <h2>Перенести запись</h2>
+          <h2>Изменить запись</h2>
           <div className="row" style={{ alignItems: "flex-end" }}>
             <label className="field" style={{ flex: "1 1 160px" }}>
               Дата
@@ -152,16 +161,80 @@ function ApptView({ id }: { id: string }) {
               Начало
               <input className="input" type="time" step={300} value={newTime} onChange={(e) => setNewTime(e.target.value)} />
             </label>
+          </div>
+          <span className="bold">Процедура</span>
+          <div className="grid-auto" style={{ ["--min" as string]: "160px" }}>
+            {procs.map((p) => {
+              const on = p.id === procId;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`pick${on ? " on" : ""}`}
+                  aria-pressed={on}
+                  style={{ background: p.color, flexDirection: "column", alignItems: "flex-start", gap: 2 }}
+                  onClick={() => {
+                    setProcId(p.id);
+                    setVariantId(p.variants.length === 1 ? p.variants[0].id : null);
+                  }}
+                >
+                  <span className="bold">{p.name}</span>
+                  {p.variants.length === 0 && (
+                    <span className="small bold">
+                      {duration(p.minutes)} · {money(p.price)}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {proc && proc.variants.length > 0 && (
+            <>
+              <span className="bold">Подтип: {proc.name}</span>
+              <div className="grid-auto" style={{ ["--min" as string]: "150px" }}>
+                {proc.variants.map((v) => {
+                  const on = v.id === variantId;
+                  return (
+                    <button key={v.id} type="button" className={`pick tinted${on ? " on" : ""}`} aria-pressed={on} style={{ flexDirection: "column", alignItems: "flex-start", gap: 2 }} onClick={() => setVariantId(v.id)}>
+                      <span className="bold">{v.name}</span>
+                      <span className="small bold">
+                        {duration(v.minutes)} · {money(v.price)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+          <div className="row">
             <button
               className="btn primary"
-              style={{ minHeight: 48 }}
+              disabled={needVariant || !newDate || !newTime}
               onClick={() => {
-                rescheduleAppointment(id, `${newDate}T${newTime}`);
-                setMoving(false);
-                showToast(`Перенесено на ${newDate.split("-").reverse().join(".")} ${newTime}`);
+                const startsAt = `${newDate}T${newTime}`;
+                if (startsAt !== appt.starts_at) rescheduleAppointment(id, startsAt);
+                // Only a real switch re-reads the price list, so an old visit keeps its price otherwise.
+                if (procChanged && proc) {
+                  changeAppointmentProcedure(id, proc, variant);
+                  if (paid === String(appt.price)) setPaid(String(variant?.price ?? proc.price));
+                }
+                setEditing(false);
+                showToast("Запись изменена");
               }}
             >
-              Сохранить
+              {needVariant ? "Выбери подтип" : "Сохранить"}
+            </button>
+            <button
+              className="btn link"
+              onClick={() => {
+                setNewDate(appt.starts_at.slice(0, 10));
+                setNewTime(appt.starts_at.slice(11, 16));
+                setProcId(appt.procedure_id);
+                setVariantId(appt.variant_id);
+                setEditing(false);
+              }}
+            >
+              Отмена
             </button>
           </div>
         </section>

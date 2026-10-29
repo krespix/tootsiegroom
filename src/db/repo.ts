@@ -491,6 +491,33 @@ export function rescheduleAppointment(id: string, startsAt: string) {
   write(() => run("UPDATE appointments SET starts_at = ?, updated_at = ? WHERE id = ?", [startsAt, nowIso(), id]));
 }
 
+/**
+ * Switch a booking to another procedure/variant, copying its current name, colour, duration and price.
+ * A paid amount that just mirrored the old price follows the new one; a custom amount stays.
+ */
+export function changeAppointmentProcedure(id: string, procedure: Procedure, variant: Variant | null) {
+  const price = variant?.price ?? procedure.price;
+  write(() =>
+    run(
+      `UPDATE appointments SET procedure_id = ?, variant_id = ?, proc_name = ?, variant_name = ?, color = ?, minutes = ?,
+         paid = CASE WHEN paid = price THEN ? ELSE paid END, price = ?, updated_at = ?
+       WHERE id = ?`,
+      [
+        procedure.id,
+        variant?.id ?? null,
+        procedure.name,
+        variant?.name ?? "",
+        procedure.color,
+        variant?.minutes ?? procedure.minutes,
+        price,
+        price,
+        nowIso(),
+        id,
+      ],
+    ),
+  );
+}
+
 export function cancelAppointment(id: string) {
   write(() => run("UPDATE appointments SET status = 'cancelled', updated_at = ? WHERE id = ?", [nowIso(), id]));
 }
