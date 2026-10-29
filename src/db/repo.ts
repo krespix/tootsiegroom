@@ -1,6 +1,6 @@
 import { all, one, run, write } from "./db";
 import { newId, nowIso } from "../lib/format";
-import { toLocalStamp } from "../lib/dates";
+import { toDateKey, toLocalStamp } from "../lib/dates";
 
 export type Dog = {
   id: string;
@@ -349,6 +349,38 @@ export function listProcedures(includeArchived = false): ProcedureWithVariants[]
 export type VariantInput = { id?: string; name: string; minutes: number; price: number };
 export type ProcedureInput = Omit<Procedure, "id" | "sort" | "archived"> & { id?: string; variants: VariantInput[] };
 
+/**
+ * Bookings from today on follow the current price list: name, colour and price
+ * are re-copied from the procedure. Past days keep what they were booked at,
+ * and durations stay put so the schedule does not shift.
+ */
+function refreshUpcoming(p: ProcedureInput & { id: string }) {
+  const from = toDateKey(new Date());
+  const now = nowIso();
+  const where = "procedure_id = ? AND starts_at >= ? AND status != 'cancelled'";
+  run(`UPDATE appointments SET proc_name = ?, color = ?, price = ?, updated_at = ? WHERE ${where} AND variant_id IS NULL`, [
+    p.name,
+    p.color,
+    p.price,
+    now,
+    p.id,
+    from,
+  ]);
+  for (const v of p.variants) {
+    if (!v.id) continue;
+    run(`UPDATE appointments SET proc_name = ?, variant_name = ?, color = ?, price = ?, updated_at = ? WHERE ${where} AND variant_id = ?`, [
+      p.name,
+      v.name,
+      p.color,
+      v.price,
+      now,
+      p.id,
+      from,
+      v.id,
+    ]);
+  }
+}
+
 export function saveProcedure(p: ProcedureInput): string {
   return write(() => {
     let id = p.id;
@@ -386,6 +418,7 @@ export function saveProcedure(p: ProcedureInput): string {
         i,
       ]),
     );
+    if (p.id) refreshUpcoming(p as ProcedureInput & { id: string });
     return id;
   });
 }
