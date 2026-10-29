@@ -14,7 +14,7 @@ export const nowIso = () => new Date().toISOString();
 
 export function money(n: number | null | undefined) {
   if (n == null) return "—";
-  return `${Math.round(n * 100) / 100} ₾`;
+  return `${(Math.round(n * 100) / 100).toLocaleString("ru-RU")} ₾`;
 }
 
 export function duration(min: number) {

@@ -14,6 +14,7 @@ import { ApptPage } from "./pages/ApptPage";
 import { CosmeticsPage } from "./pages/CosmeticsPage";
 import { ProceduresPage } from "./pages/ProceduresPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { StatsPage } from "./pages/StatsPage";
 
 // A home-screen app can stay in memory for days, so look for a new version
 // whenever it comes to the foreground; autoUpdate reloads once it is installed.
@@ -48,6 +49,7 @@ async function start() {
             <Route path="cosmetics" element={<CosmeticsPage />} />
             <Route path="procedures" element={<ProceduresPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="stats" element={<StatsPage />} />
           </Route>
         </Routes>
       </HashRouter>

@@ -268,6 +268,45 @@ export function dogsWithUpcoming(at = new Date()): Set<string> {
   return new Set(rows.map((r) => r.dog_id));
 }
 
+// ---------- stats ----------
+
+export type StatVisit = {
+  id: string;
+  dog_id: string;
+  dog_name: string;
+  procedure_id: string | null;
+  proc_name: string;
+  starts_at: string;
+  minutes: number;
+  price: number;
+  paid: number | null;
+};
+
+/** Non-cancelled bookings starting in [from, to) (local stamps or date keys). */
+export function statVisits(from: string, to: string): StatVisit[] {
+  return all<StatVisit>(
+    `SELECT a.id, a.dog_id, d.name AS dog_name, a.procedure_id, a.proc_name, a.starts_at, a.minutes, a.price, a.paid
+     FROM appointments a JOIN dogs d ON d.id = a.dog_id
+     WHERE a.status != 'cancelled' AND a.starts_at >= ? AND a.starts_at < ? ORDER BY a.starts_at`,
+    [from, to],
+  );
+}
+
+export type ProductUse = { appointment_id: string; dog_id: string; product_id: string; product_name: string; brand_id: string; brand_name: string };
+
+/** One row per cosmetic product ticked on a non-cancelled visit in [from, to). */
+export function productUsesBetween(from: string, to: string): ProductUse[] {
+  return all<ProductUse>(
+    `SELECT ap.appointment_id, a.dog_id, p.id AS product_id, p.name AS product_name, b.id AS brand_id, b.name AS brand_name
+     FROM appointment_products ap
+     JOIN appointments a ON a.id = ap.appointment_id
+     JOIN products p ON p.id = ap.product_id
+     JOIN brands b ON b.id = p.brand_id
+     WHERE a.status != 'cancelled' AND a.starts_at >= ? AND a.starts_at < ?`,
+    [from, to],
+  );
+}
+
 // ---------- cosmetics ----------
 
 export function listBrands(): Brand[] {

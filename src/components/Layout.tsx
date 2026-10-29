@@ -9,6 +9,7 @@ const SECTIONS: { to: string; label: string; icon: IconName }[] = [
   { to: "/dogs", label: "Собаки", icon: "paw" },
   { to: "/cosmetics", label: "Косметика", icon: "bottle" },
   { to: "/procedures", label: "Процедуры", icon: "scissors" },
+  { to: "/stats", label: "Статистика", icon: "chart" },
 ];
 
 export function SyncLabel() {

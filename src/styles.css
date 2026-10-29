@@ -13,6 +13,10 @@
   --amber-bg: #fff1d6;
   --amber-fg: #8a5300;
   --danger: #a3123f;
+  --plum: #7b4a93;
+  --plum-mid: #b996cc;
+  --plum-soft: #dcc8e6;
+  --plum-bg: #f3eaf7;
   --shadow: 0 2px 10px rgba(43, 22, 56, 0.06);
   --radius: 20px;
   --head: "Manrope", system-ui, sans-serif;
@@ -33,9 +37,8 @@ body {
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
-  /* Long names, handles and notes wrap instead of pushing out of their card, hyphenated where possible. */
+  /* Long names, handles and notes wrap instead of pushing out of their card. */
   overflow-wrap: break-word;
-  hyphens: auto;
 }
 
 /* One line with an ellipsis, for labels inside buttons. */
@@ -570,6 +573,7 @@ textarea.input {
 }
 
 .pick .col > span {
+  hyphens: auto;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -659,15 +663,20 @@ textarea.input {
 
 .week-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(108px, 1fr));
-  min-width: 756px;
+  grid-template-columns: repeat(7, minmax(112px, 1fr));
+  min-width: 784px;
+}
+
+/* The week wants ~784px; when the side column would squeeze it, the side column drops below instead. */
+.split > .week.grow {
+  flex-basis: 784px;
 }
 
 .day-col {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 16px 10px;
+  padding: 16px 6px;
   min-height: 560px;
   border-right: 1px solid var(--line-soft);
 }
@@ -724,7 +733,7 @@ textarea.input {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 10px 12px;
+  padding: 10px;
   border-radius: 14px;
   border: 1px solid var(--line);
   text-decoration: none;
@@ -733,12 +742,14 @@ textarea.input {
 .appt-card .time {
   font-size: 12px;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .appt-card .who {
   font-family: var(--head);
   font-weight: 700;
   font-size: 15px;
+  hyphens: auto;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -767,19 +778,11 @@ textarea.input {
 }
 
 .done-badge {
-  margin-top: 10px;
-  align-self: flex-start;
-  max-width: 100%;
-  box-sizing: border-box;
-  padding: 3px 8px;
-  border-radius: 10px;
-  background: var(--surface);
-  border: 1px solid var(--line);
+  margin-top: 8px;
   font-size: 12px;
   font-weight: 800;
-  /* In a narrow week column the badge may wrap, but only between words. */
-  hyphens: manual;
-  overflow-wrap: normal;
+  color: #145c3b;
+  white-space: nowrap;
 }
 
 .add-slot {
@@ -1010,4 +1013,444 @@ textarea.input {
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+/* ---------- stats ---------- */
+
+.stats {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.stats h2 {
+  margin: 0;
+}
+
+.ink {
+  color: var(--ink);
+}
+
+.st-nav {
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.st-range {
+  min-width: 140px;
+  text-align: center;
+  font-family: var(--head);
+  font-weight: 800;
+  font-size: 17px;
+}
+
+.st-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.st-segments {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 16px;
+  background: #f1e7ee;
+}
+
+.st-segments button {
+  min-height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.st-segments button.on {
+  background: var(--surface);
+  box-shadow: 0 2px 8px rgba(43, 22, 56, 0.08);
+}
+
+.st-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.st-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.st-hero {
+  flex: 2 1 360px;
+  gap: 8px;
+}
+
+.st-tile {
+  flex: 1 1 160px;
+  gap: 6px;
+}
+
+.st-big {
+  font-family: var(--head);
+  font-weight: 800;
+  font-size: 44px;
+  line-height: 1;
+}
+
+.st-mid {
+  font-family: var(--head);
+  font-weight: 800;
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.st-delta {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #ddf4ea;
+  color: #145c3b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.st-delta.down {
+  background: #f1e7ee;
+  color: var(--ink);
+}
+
+.st-swatch {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: var(--plum);
+}
+
+.st-swatch.planned,
+.st-seg.planned {
+  background: repeating-linear-gradient(135deg, #b48cc9 0 3px, #f4ecf8 3px 6px);
+  box-shadow: inset 0 0 0 1px #9c6fb5;
+}
+
+.st-info {
+  align-self: flex-start;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.st-chart {
+  --plot: 180px;
+  position: relative;
+  padding-top: 18px;
+}
+
+.st-gridline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 18px;
+  border-bottom: 1px dashed var(--line);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: right;
+}
+
+.st-gridline.mid {
+  top: calc(var(--plot) / 2);
+}
+
+.st-bars {
+  position: relative;
+  display: flex;
+  gap: 3px;
+  /* Room on the right for the grid labels, so they never sit on a bar. */
+  margin-right: 48px;
+}
+
+.st-col {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+
+.st-col.on {
+  background: var(--plum-bg);
+}
+
+.st-plot {
+  height: var(--plot);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 0 2px;
+  border-bottom: 1px solid var(--dash);
+}
+
+.st-seg {
+  display: block;
+  flex: none;
+  background: var(--plum);
+  border-radius: 4px 4px 0 0;
+}
+
+.st-seg.flat {
+  border-radius: 0;
+}
+
+.st-seg.gap {
+  margin-bottom: 2px;
+}
+
+.st-tick {
+  height: 20px;
+  line-height: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.st-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.st-grid > .card {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.st-grid.two > .card {
+  flex-basis: 340px;
+}
+
+.st-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 -8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.st-row.on {
+  background: var(--plum-bg);
+}
+
+.st-row.static {
+  cursor: default;
+}
+
+.st-row-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.st-row-head > :last-child {
+  flex: none;
+}
+
+.st-track {
+  display: flex;
+  height: 10px;
+  border-radius: 6px;
+  background: var(--plum-bg);
+}
+
+.st-track.thin {
+  height: 6px;
+}
+
+.st-fill {
+  display: block;
+  border-radius: 6px;
+  background: var(--plum);
+}
+
+.st-fill.dim {
+  background: var(--plum-soft);
+}
+
+.st-week {
+  display: flex;
+  gap: 8px;
+  height: 150px;
+}
+
+.st-week-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.st-week-bar {
+  display: block;
+  flex: none;
+  width: 100%;
+  max-width: 32px;
+  border-radius: 4px 4px 0 0;
+  background: var(--plum-mid);
+}
+
+.st-week-bar.best {
+  background: var(--plum);
+}
+
+.st-week-bar.zero {
+  background: var(--line);
+}
+
+.st-dog {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  text-decoration: none;
+}
+
+.st-dog-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.st-unused {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--bg);
+}
+
+.st-fun {
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+}
+
+.st-fun.butter {
+  background: var(--butter);
+}
+
+.st-fun-icon {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.st-fun-icon.green {
+  background: #ddf4ea;
+  color: #145c3b;
+  border-color: #ddf4ea;
+}
+
+@media (max-width: 899px) {
+  .stats .page-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .st-nav {
+    justify-content: space-between;
+  }
+
+  .st-segments {
+    width: 100%;
+  }
+
+  .st-segments button {
+    flex: 1;
+    min-height: 44px;
+  }
+
+  .st-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin: 0 -16px;
+    padding: 0 16px 4px;
+  }
+
+  .st-chips .chip {
+    flex: none;
+    min-height: 44px;
+  }
+
+  .st-tiles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .st-hero {
+    grid-column: 1 / -1;
+  }
+
+  .st-big {
+    font-size: 38px;
+  }
+
+  .st-mid {
+    font-size: 24px;
+  }
+
+  .st-chart {
+    --plot: 150px;
+  }
+
+  .st-bars {
+    gap: 2px;
+    margin-right: 40px;
+  }
+
+  .st-plot {
+    padding: 0;
+  }
 }

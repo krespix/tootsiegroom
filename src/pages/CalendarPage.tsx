@@ -125,6 +125,9 @@ function DaySummary({ day, appts, now }: { day: Date; appts: AppointmentRow[]; n
           )}
         </div>
       )}
+      <Link to="/stats" className="small bold" style={{ alignSelf: "flex-start" }}>
+        Вся статистика →
+      </Link>
       {joke && (
         <div className="joke">
           <Icon name="heart" size={22} />
