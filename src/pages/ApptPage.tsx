@@ -94,7 +94,9 @@ function ApptView({ id }: { id: string }) {
   const close = () => (window.history.state?.idx > 0 ? nav(-1) : nav("/"));
 
   const save = () => {
-    const filled = saveVisit(id, { paid: paid === "" ? null : Number(paid), notes, productIds: [...picked] });
+    // Paid equal to the price list is not stored, so later price changes still flow into the visit.
+    const paidValue = paid === "" || Number(paid) === appt.price ? null : Number(paid);
+    const filled = saveVisit(id, { paid: paidValue, notes, productIds: [...picked] });
     flash(filled ? "Визит сохранён" : "Сохранено. Пока пусто — визит не заполнен");
     close();
   };

@@ -350,17 +350,20 @@ export type VariantInput = { id?: string; name: string; minutes: number; price: 
 export type ProcedureInput = Omit<Procedure, "id" | "sort" | "archived"> & { id?: string; variants: VariantInput[] };
 
 /**
- * Bookings from today on follow the current price list: name, colour and price
- * are re-copied from the procedure. Past days keep what they were booked at,
- * and durations stay put so the schedule does not shift.
+ * Bookings from today on follow the current price list: name, colour, duration
+ * and price are re-copied from the procedure. Past days keep what they were booked at.
  */
 function refreshUpcoming(p: ProcedureInput & { id: string }) {
   const from = toDateKey(new Date());
   const now = nowIso();
   const where = "procedure_id = ? AND starts_at >= ? AND status != 'cancelled'";
-  run(`UPDATE appointments SET proc_name = ?, color = ?, price = ?, updated_at = ? WHERE ${where} AND variant_id IS NULL`, [
+  // A paid amount that just mirrored the old price follows the new one.
+  const setPrice = "paid = CASE WHEN paid = price THEN ? ELSE paid END, price = ?";
+  run(`UPDATE appointments SET proc_name = ?, color = ?, minutes = ?, ${setPrice}, updated_at = ? WHERE ${where} AND variant_id IS NULL`, [
     p.name,
     p.color,
+    p.minutes,
+    p.price,
     p.price,
     now,
     p.id,
@@ -368,10 +371,12 @@ function refreshUpcoming(p: ProcedureInput & { id: string }) {
   ]);
   for (const v of p.variants) {
     if (!v.id) continue;
-    run(`UPDATE appointments SET proc_name = ?, variant_name = ?, color = ?, price = ?, updated_at = ? WHERE ${where} AND variant_id = ?`, [
+    run(`UPDATE appointments SET proc_name = ?, variant_name = ?, color = ?, minutes = ?, ${setPrice}, updated_at = ? WHERE ${where} AND variant_id = ?`, [
       p.name,
       v.name,
       p.color,
+      v.minutes,
+      v.price,
       v.price,
       now,
       p.id,
