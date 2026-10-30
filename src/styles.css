@@ -1265,7 +1265,8 @@ textarea.input {
 }
 
 .st-swatch.planned,
-.st-seg.planned {
+.st-seg.planned,
+.st-fill.planned {
   background: repeating-linear-gradient(135deg, #b48cc9 0 3px, #f4ecf8 3px 6px);
   box-shadow: inset 0 0 0 1px #9c6fb5;
 }
@@ -1377,6 +1378,30 @@ textarea.input {
 
 .st-grid.two > .card {
   flex-basis: 340px;
+}
+
+.actual-part {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.actual-part .input {
+  width: 100%;
+  padding-right: 44px;
+  background: var(--butter);
+  font-weight: 800;
+}
+
+.actual-part span {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+  pointer-events: none;
 }
 
 .st-row {

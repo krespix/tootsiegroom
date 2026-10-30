@@ -62,6 +62,7 @@ export type Appointment = {
   price: number;
   status: "planned" | "cancelled";
   paid: number | null;
+  actual_minutes: number | null;
   notes: string;
   photo_before: string | null;
   photo_after: string | null;
@@ -306,16 +307,18 @@ export type StatVisit = {
   dog_name: string;
   procedure_id: string | null;
   proc_name: string;
+  variant_name: string;
   starts_at: string;
   minutes: number;
   price: number;
   paid: number | null;
+  actual_minutes: number | null;
 };
 
 /** Non-cancelled bookings starting in [from, to) (local stamps or date keys). */
 export function statVisits(from: string, to: string): StatVisit[] {
   return all<StatVisit>(
-    `SELECT a.id, a.dog_id, d.name AS dog_name, a.procedure_id, a.proc_name, a.starts_at, a.minutes, a.price, a.paid
+    `SELECT a.id, a.dog_id, d.name AS dog_name, a.procedure_id, a.proc_name, a.variant_name, a.starts_at, a.minutes, a.price, a.paid, a.actual_minutes
      FROM appointments a JOIN dogs d ON d.id = a.dog_id
      WHERE a.status != 'cancelled' AND a.starts_at >= ? AND a.starts_at < ? ORDER BY a.starts_at`,
     [from, to],
@@ -636,10 +639,10 @@ export function setAppointmentPhoto(id: string, which: "photo_before" | "photo_a
 }
 
 /** Saves the visit report; returns whether the visit now counts as filled. */
-export function saveVisit(id: string, v: { paid: number | null; notes: string; productIds: string[] }): boolean {
+export function saveVisit(id: string, v: { paid: number | null; actualMinutes: number | null; notes: string; productIds: string[] }): boolean {
   return write(() => {
     const now = nowIso();
-    run("UPDATE appointments SET paid = ?, notes = ?, updated_at = ? WHERE id = ?", [v.paid, v.notes, now, id]);
+    run("UPDATE appointments SET paid = ?, actual_minutes = ?, notes = ?, updated_at = ? WHERE id = ?", [v.paid, v.actualMinutes, v.notes, now, id]);
     run("DELETE FROM appointment_products WHERE appointment_id = ?", [id]);
     v.productIds.forEach((pid) => run("INSERT INTO appointment_products (appointment_id, product_id) VALUES (?,?)", [id, pid]));
     const filled = visitHasContent(id);

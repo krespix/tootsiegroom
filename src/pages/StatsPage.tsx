@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useDbVersion } from "../db/db";
 import { listProducts, productUsesBetween, statVisits, type StatVisit } from "../db/repo";
 import { addDays, addMinutes, fromLocalStamp, startOfDay, startOfWeek, toDateKey } from "../lib/dates";
-import { initial, money, pastelFor, plural } from "../lib/format";
+import { duration, initial, money, pastelFor, plural } from "../lib/format";
 import { CountUp, useNow } from "../components/common";
 import { Icon } from "../components/Icon";
 
@@ -143,6 +143,26 @@ export function StatsPage() {
     .map(([id, amount]) => ({ id, amount, name: done.find((v) => v.dog_id === id)!.dog_name, count: done.filter((v) => v.dog_id === id).length }))
     .sort((a, b) => b.amount - a.amount)
     .slice(0, 5);
+
+  // Time: what each procedure actually took against what was planned, from visits where it was entered.
+  const timed = done.filter((v) => v.actual_minutes != null);
+  const avg = (list: StatVisit[], f: (v: StatVisit) => number) => list.reduce((s, v) => s + f(v), 0) / list.length;
+  const timeGroups = new Map<string, StatVisit[]>();
+  for (const v of timed) {
+    const key = `${procKey(v)}|${v.variant_name}`;
+    timeGroups.set(key, [...(timeGroups.get(key) ?? []), v]);
+  }
+  const timeRows = [...timeGroups.entries()]
+    .map(([key, list]) => ({
+      key,
+      name: `${list[0].proc_name}${list[0].variant_name ? `, ${list[0].variant_name.toLowerCase()}` : ""}`,
+      count: list.length,
+      plan: avg(list, (v) => v.minutes),
+      fact: avg(list, (v) => v.actual_minutes!),
+    }))
+    .sort((a, b) => b.count - a.count);
+  const timeMax = Math.max(1, ...timeRows.flatMap((r) => [r.plan, r.fact]));
+  const timeDelta = timed.length ? Math.round(avg(timed, (v) => v.actual_minutes! - v.minutes)) : 0;
 
   // Cosmetics: how many visits in the period used each product.
   const visitIds = new Set(visits.map((v) => v.id));
@@ -317,6 +337,58 @@ export function StatsPage() {
           ))}
         </section>
       </div>
+
+      <section className="card" aria-label="Время: план и факт">
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <h2>Время: план и факт</h2>
+          {timeRows.length > 0 && (
+            <div className="row tiny bold muted" style={{ gap: 14 }}>
+              <span className="row" style={{ gap: 6 }}>
+                <span className="st-swatch planned" aria-hidden="true" />
+                Закладываешь
+              </span>
+              <span className="row" style={{ gap: 6 }}>
+                <span className="st-swatch" aria-hidden="true" />
+                По факту
+              </span>
+            </div>
+          )}
+        </div>
+        {timed.length === 0 ? (
+          <p className="small muted bold">Впиши в визите, сколько по факту заняла процедура, — тут появится сравнение с тем, сколько закладываешь.</p>
+        ) : (
+          <p className="small muted bold">
+            Время вписано в {timed.length} из {visitsWord(done.length)}. В среднем визит идёт{" "}
+            <b className="ink">{timeDelta === 0 ? "ровно по плану" : `на ${duration(Math.abs(timeDelta))} ${timeDelta > 0 ? "дольше" : "быстрее"}`}</b>
+            {timeDelta === 0 ? "" : " плана"}.
+          </p>
+        )}
+        <div className="grid-auto" style={{ ["--min" as string]: "300px", gap: 14 }}>
+          {timeRows.map((r) => {
+            const d = Math.round(r.fact - r.plan);
+            // Suggest a new plan once a few visits agree it is off by 10+ minutes, rounded to 5.
+            const suggest = r.count >= 3 && Math.abs(d) >= 10 ? Math.round(r.fact / 5) * 5 : null;
+            return (
+              <div key={r.key} className="st-row static" role="group" aria-label={`${r.name}: закладываешь ${duration(Math.round(r.plan))}, по факту ${duration(Math.round(r.fact))}`}>
+                <span className="st-row-head">
+                  <span>{r.name}</span>
+                  <span>{d === 0 ? "по плану" : `${d > 0 ? "+" : "−"}${duration(Math.abs(d))}`}</span>
+                </span>
+                <span className="st-track thin">
+                  <span className="st-fill planned" style={{ width: `${(r.plan / timeMax) * 100}%` }} />
+                </span>
+                <span className="st-track thin">
+                  <span className="st-fill" style={{ width: `${(r.fact / timeMax) * 100}%` }} />
+                </span>
+                <span className="tiny bold muted">
+                  {duration(Math.round(r.plan))} → {duration(Math.round(r.fact))} · {visitsWord(r.count)}
+                </span>
+                {suggest !== null && <span className="tiny bold">Можно закладывать {duration(suggest)}</span>}
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       <div className="st-grid two">
         <section className="card" aria-label="Чаще всего из косметики">

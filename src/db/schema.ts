@@ -179,4 +179,9 @@ export const MIGRATIONS: Migration[] = [
   `
   ALTER TABLE appointments ADD COLUMN reminded_at TEXT;
   `,
+
+  // v6: how long the visit actually took, in minutes (null until entered).
+  `
+  ALTER TABLE appointments ADD COLUMN actual_minutes INTEGER;
+  `,
 ];

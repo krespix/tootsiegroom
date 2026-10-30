@@ -22,6 +22,13 @@ export function duration(min: number) {
   return [h ? `${h} ч` : "", m ? `${m} мин` : ""].filter(Boolean).join(" ") || "0 мин";
 }
 
+/** "на 15 мин дольше плана" / "на 10 мин быстрее плана" / "ровно по плану". */
+export function planDelta(actual: number, planned: number) {
+  const d = Math.round(actual - planned);
+  if (d === 0) return "ровно по плану";
+  return `на ${duration(Math.abs(d))} ${d > 0 ? "дольше" : "быстрее"} плана`;
+}
+
 /** Stable pastel for things without an explicit color (dog avatars, brands). */
 export function pastelFor(id: string) {
   let h = 0;

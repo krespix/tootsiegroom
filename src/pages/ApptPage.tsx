@@ -20,7 +20,7 @@ import {
 } from "../db/repo";
 import { addDays, fromLocalStamp, hhmm, slotLabel, toDateKey } from "../lib/dates";
 import { clashLabel, clashes } from "../lib/slots";
-import { duration, money } from "../lib/format";
+import { duration, money, planDelta } from "../lib/format";
 import { askConfirm } from "../lib/dialog";
 import { celebrate, markJustFilled } from "../lib/fx";
 import { Avatar, PhotoSlot, Thumb, flash, useToast } from "../components/common";
@@ -58,6 +58,10 @@ function ApptView({ id }: { id: string }) {
   const [toast, showToast] = useToast();
 
   const [paid, setPaid] = useState(String(appt.paid ?? appt.price));
+  const [actualH, setActualH] = useState(appt.actual_minutes != null ? String(Math.floor(appt.actual_minutes / 60)) : "");
+  const [actualM, setActualM] = useState(appt.actual_minutes != null ? String(appt.actual_minutes % 60) : "");
+  // Empty means "not entered": unlike the price, the plan is not assumed, so stats only count real measurements.
+  const actual = actualH === "" && actualM === "" ? null : Math.round(Number(actualH || 0) * 60 + Number(actualM || 0)) || null;
   const [notes, setNotes] = useState(appt.notes);
   const [picked, setPicked] = useState<Set<string>>(() => new Set(usedProducts(id).map((p) => p.id)));
   const [brandId, setBrandId] = useState<string | null>(brands[0]?.id ?? null);
@@ -109,7 +113,7 @@ function ApptView({ id }: { id: string }) {
   const save = () => {
     // Paid equal to the price list is not stored, so later price changes still flow into the visit.
     const paidValue = paid === "" || Number(paid) === appt.price ? null : Number(paid);
-    const filled = saveVisit(id, { paid: paidValue, notes, productIds: [...picked] });
+    const filled = saveVisit(id, { paid: paidValue, actualMinutes: actual, notes, productIds: [...picked] });
     flash(filled ? "Визит сохранён" : "Сохранено. Пока пусто — визит не заполнен", filled);
     if (filled) {
       celebrate();
@@ -272,7 +276,7 @@ function ApptView({ id }: { id: string }) {
       <div className="split">
         <div className="grow">
           <section className="card">
-            <h2>Оплата</h2>
+            <h2>Оплата и время</h2>
             <div className="row" style={{ alignItems: "flex-end" }}>
               <div className="field" style={{ flex: "1 1 180px" }}>
                 По прайсу
@@ -285,6 +289,36 @@ function ApptView({ id }: { id: string }) {
                 <input className="input" type="number" min={0} step={5} inputMode="decimal" value={paid} onFocus={(e) => e.target.select()} onChange={(e) => setPaid(e.target.value)} style={{ background: "var(--butter)", fontWeight: 800 }} />
               </label>
             </div>
+            <div className="row" style={{ alignItems: "flex-end" }}>
+              <div className="field" style={{ flex: "1 1 180px" }}>
+                По плану
+                <span className="input" style={{ display: "flex", alignItems: "center", background: "transparent", borderStyle: "dashed" }}>
+                  {duration(appt.minutes)}
+                </span>
+              </div>
+              <div className="field" style={{ flex: "1 1 180px" }}>
+                Заняло по факту
+                <div className="row" style={{ flexWrap: "nowrap", gap: 8 }}>
+                  <label className="actual-part">
+                    <input className="input" type="number" min={0} inputMode="numeric" value={actualH} placeholder="0" aria-label="Заняло, часов" onFocus={(e) => e.target.select()} onChange={(e) => setActualH(e.target.value)} />
+                    <span>ч</span>
+                  </label>
+                  <label className="actual-part">
+                    <input className="input" type="number" min={0} max={59} step={5} inputMode="numeric" value={actualM} placeholder="0" aria-label="Заняло, минут" onFocus={(e) => e.target.select()} onChange={(e) => setActualM(e.target.value)} />
+                    <span>мин</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <p className="small muted bold">
+              {actual != null ? (
+                <>
+                  {duration(actual)} — <b className="ink">{planDelta(actual, appt.minutes)}</b>
+                </>
+              ) : (
+                "Впиши, сколько ушло на самом деле — в статистике будет видно, хватает ли заложенного времени."
+              )}
+            </p>
           </section>
 
           <section className="card">
